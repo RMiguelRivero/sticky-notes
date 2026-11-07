@@ -1,0 +1,23 @@
+body {
+  margin: 0;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* The universal selector has no specificity, so !important is what lets this beat component rules. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: must override every component's motion */
+    animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must override every component's motion */
+    transition: none !important;
+  }
+}

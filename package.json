@@ -12,7 +12,8 @@
     "typecheck": "tsc -b",
     "lint": "biome lint .",
     "format": "biome format --write .",
-    "check": "biome ci . && pnpm typecheck && pnpm test && pnpm build"
+    "check": "biome ci . && pnpm typecheck && pnpm test && pnpm build",
+    "contrast": "node scripts/contrast.ts"
   },
   "dependencies": {
     "react": "^19.3.1",

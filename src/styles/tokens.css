@@ -1,0 +1,48 @@
+/*
+ * Color tokens. The only hand-picked app color is --color-primary; every other --color-* token
+ * is derived from it with relative color syntax, so changing the primary re-themes the whole app.
+ * Tokens are named by role, never by hue. Lightness carries the contrast; chroma stays low
+ * enough to keep every color inside sRGB, so the browser shows exactly what CONTRAST.md checks.
+ * Run `pnpm contrast` after any change here.
+ */
+:root {
+  --color-primary: oklch(0.55 0.13 150);
+
+  /* Surfaces: a lightly tinted page, near-white panels, pure white for raised elements. */
+  --color-bg: oklch(from var(--color-primary) 0.96 0.015 h);
+  --color-surface: oklch(from var(--color-primary) 0.985 0.006 h);
+  --color-surface-raised: oklch(from var(--color-primary) 1 0 h);
+
+  /* Lines: --color-border is the lightest line that still reaches 3:1 on every surface and note. */
+  --color-border: oklch(from var(--color-primary) 0.6 0.03 h);
+  --color-border-strong: oklch(from var(--color-primary) 0.45 0.04 h);
+
+  /* Text */
+  --color-text: oklch(from var(--color-primary) 0.25 0.03 h);
+  --color-text-muted: oklch(from var(--color-primary) 0.46 0.03 h);
+  --color-text-on-accent: oklch(from var(--color-primary) 1 0 h);
+
+  /* Accent: hover and press are steps darker, so each state differs in lightness. */
+  --color-accent: var(--color-primary);
+  --color-accent-hover: oklch(from var(--color-accent) calc(l - 0.06) 0.11 h);
+  --color-accent-active: oklch(from var(--color-accent) calc(l - 0.12) 0.09 h);
+
+  --color-focus: oklch(from var(--color-primary) 0.42 0.08 h);
+
+  /*
+   * Danger: the primary's hue rotated to red. Hue alone is not enough (WCAG 1.4.1): the trash
+   * zone must also show an icon or label.
+   */
+  --color-danger: oklch(from var(--color-primary) 0.52 0.16 calc(h - 125));
+  --color-danger-active: oklch(from var(--color-primary) 0.42 0.12 calc(h - 125));
+
+  /*
+   * Deliberate exception: note colors are content, not theme. Users pick them by hue, so they
+   * are named by color and do not follow --color-primary. All four share one lightness (0.94)
+   * with chroma near the sRGB limit for each hue. Notes reuse --color-text and --color-border.
+   */
+  --note-yellow: oklch(0.94 0.12 102);
+  --note-pink: oklch(0.94 0.034 350);
+  --note-blue: oklch(0.94 0.031 240);
+  --note-orange: oklch(0.94 0.042 68);
+}

@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Vitest replaces CSS with an empty string by default; the contrast test needs the real tokens.
+    css: { include: [/tokens\.css/] },
   },
 })
