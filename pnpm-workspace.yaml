@@ -1,0 +1,5 @@
+# Supply-chain guard: never install a package version published less than 3 days ago.
+minimumReleaseAge: 4320 # minutes (3 days)
+minimumReleaseAgeStrict: true # fail instead of falling back to a too-new version
+minimumReleaseAgeIgnoreMissingTime: false # fail if the registry can't date a release
+engineStrict: true # refuse to install on any Node version other than package.json "engines"
