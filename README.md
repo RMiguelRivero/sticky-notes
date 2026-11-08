@@ -36,6 +36,7 @@ Then open the URL Vite prints (by default http://localhost:5173).
 | `pnpm build`     | Type-check and build for production into `dist/`                 |
 | `pnpm preview`   | Serve the production build locally (http://localhost:4173)       |
 | `pnpm test`      | Run the unit tests once (Vitest)                                 |
+| `pnpm test:coverage` | Run the tests with a coverage report (text, plus HTML in `coverage/`) |
 | `pnpm typecheck` | Type-check the project (`tsc -b`)                                |
 | `pnpm lint`      | Lint with Biome                                                  |
 | `pnpm format`    | Format with Biome                                                |
@@ -218,6 +219,10 @@ scripts/
   assertions (`!`) and missing hook dependencies are errors.
 - **Vitest** runs in a Node environment: the tests cover pure TypeScript logic (domain, drag state
   machine, persistence, contrast), not rendered components.
+- **Coverage** (`pnpm test:coverage`, `@vitest/coverage-v8`): the logic modules (everything except
+  React components, `App.tsx` and the two React hooks) are at 96.5% statements, 91.9% branches
+  and 100% functions; most uncovered lines are the unreachable `assertNever` defaults. Counting
+  every source file, including the untested React layer, the total is 64% statements.
 - **Supply-chain guard:** `pnpm-workspace.yaml` refuses any package version published less than
   3 days ago (`minimumReleaseAge`, strict), and pnpm refuses to install on any Node version other
   than the pinned one.

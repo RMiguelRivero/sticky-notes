@@ -27,3 +27,6 @@ dist-ssr
 CLAUDE.md
 .claude/
 docs/
+
+# Test coverage reports (pnpm test:coverage)
+coverage
