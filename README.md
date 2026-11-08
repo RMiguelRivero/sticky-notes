@@ -31,7 +31,14 @@ Then open the URL Vite prints (by default http://localhost:5173).
 
 ## Features
 
-<!-- Filled in step by step: core features, bonuses, and how to use each. -->
+- **Autosave to localStorage (bonus III).** The default. Notes and the board title are saved
+  automatically about 400 ms after the last change; there is no save button. Data is stored as
+  `{ version, board }` under one key. If the stored data is unreadable it is copied to a backup key
+  and the app starts with an empty board.
+- **Async mock REST API (bonus V).** Add `?storage=api` to the URL to switch. A fake server
+  (with 300-800 ms latency, its own storage key, and real-looking status codes) replaces
+  localStorage behind the same interface. Add `?fail=0.3` to make 30% of requests fail with 503
+  (any value from 0 to 1; invalid values are ignored). Failed parts are re-sent on the next save.
 
 ## Architecture
 
@@ -56,6 +63,28 @@ Then open the URL Vite prints (by default http://localhost:5173).
   `boardLoaded` compacts z to `1..n`. The array order, and so DOM and Tab order, never changes.
 - **Ids come in on actions.** The reducer never calls `crypto` or the clock, so the same
   state and action always give the same result, and tests need no mocks.
+- **Async repository interface.** `BoardRepository` has `load()` and `save(board)` for the whole
+  board. Both resolve to discriminated unions (`loaded | empty | corrupt | failed`, and
+  `saved | failed`) and never throw. Storage is injected as a small `KeyValueStorage` type, so
+  tests use an in-memory fake and a throwing `localStorage` (quota, private mode) becomes a
+  `failed` result.
+- **Versioned envelope and corrupt-data backup.** Data is stored as `{ version: 1, board }`; the
+  Zod schema reuses `boardSchema`. Anything that fails to parse or validate is copied, untouched,
+  to `<key>:corrupt-backup` (an existing backup is never overwritten) and `load` returns
+  `corrupt`, so autosave cannot destroy the only copy.
+- **Mock REST server with diff-based CRUD.** `createMockServer` serves `GET/PATCH /board` and
+  `POST/PATCH/DELETE /notes`, with random latency and failure rate (both injected, so tests are
+  deterministic) and JSON round trips on every body. `createMockApiRepository` remembers the board
+  the server last acknowledged and, on each save, sends only the difference: `POST` for a new
+  note, `PATCH` for a changed one (including `z`), `DELETE` for a removed one, `PATCH /board` for
+  a new title. The remembered board is updated per successful request, so after a partial failure
+  the next save re-sends exactly what failed.
+- **Save scheduler.** `createSaveScheduler` is plain TypeScript with no React. It keeps only the
+  latest board, debounces, and runs one save at a time: changes made during a save are merged
+  into one follow-up save of the newest board, so responses cannot arrive out of order and the
+  last board always wins. Its status is a union (`idle | pending | saving | saved | error`).
+  `useBoardPersistence` is a thin hook over it: it loads once, then schedules every board change,
+  and flushes on `pagehide`. `selectRepository` picks the repository from the URL query.
 
 ### Interaction model
 
@@ -112,6 +141,8 @@ src/
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
                 contrast math (contrast.ts) and its test
   interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM)
+  persistence/  Async BoardRepository, localStorage and mock-API implementations, save scheduler,
+                and the React hook that loads and autosaves the board
 scripts/
   contrast.ts   Writes CONTRAST.md from the tokens (`pnpm contrast`)
 ```
@@ -154,6 +185,19 @@ scripts/
   it needs no Node types and app code cannot type-check against Node-only globals like `process`.
   Vitest replaces CSS with an empty string by default, so `vite.config.ts` sets
   `test.css.include` to `tokens.css`.
+- **A failed load still starts an empty board and keeps autosave on.** For `corrupt` data the
+  backup protects the original. For a `failed` load (for example the network is down), later saves
+  may overwrite the title and notes the server already had; the user sees an error message.
+- **The mock API cannot back up corrupt server data.** A response that fails validation is
+  reported as `corrupt` with no backup, since the client owns no copy. The mock server itself
+  answers 500 for its own corrupt storage.
+- **`GET /board` answers 404 until the first write**, which the client reads as `empty`.
+- **A 404 on `DELETE` counts as success**: the note is already gone.
+- **`useBoardPersistence` skips the board it starts with and the loaded board by reference.** If the
+  caller rebuilds the loaded board (for example `boardLoaded` renumbers `z`), that one new board is
+  saved once; the cost is a single extra save.
+- **After a failed save there are no retry timers**; the next change tries again. With the mock
+  API the unconfirmed requests are re-sent then, with localStorage the whole board is.
 
 ## MVP+1: what's next and where I cut corners
 
@@ -164,3 +208,11 @@ scripts/
 - **Undo/redo.** Cut: not needed for the core features. State changes are already small events on
   a pure reducer with absolute rects, so undo can be added as a history of previous states plus a
   `noteRestored` action (for deleted notes) without changing existing actions.
+- **Retry with back-off and an offline queue.** Cut: autosave only retries on the next change.
+  The scheduler already has one place that handles a save result, so a retry timer is a small
+  addition there, and the mock API repository already keeps unconfirmed work between saves.
+- **Cross-tab sync and conflict handling.** Cut: two tabs overwrite each other (last write wins).
+  The versioned envelope leaves room for a revision number, and the `storage` event could feed
+  `boardLoaded`.
+- **Schema migrations.** Cut: only version 1 exists. The envelope's `version` field is checked
+  strictly now; a migration step would sit between parsing the version and validating the board.
