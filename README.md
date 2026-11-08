@@ -3,6 +3,9 @@
 A single-page sticky-notes board built with React and TypeScript, without UI or drag-and-drop
 libraries. All 4 core features and all 5 bonuses are implemented.
 
+**Live demo:** https://sticky-notes-five-psi.vercel.app/ (add `?storage=api` to try the async
+mock REST API, and `&fail=0.3` to make 30% of its requests fail).
+
 **Where to find what the grading covers:**
 
 - Architecture and design: [Architecture](#architecture), [Project structure](#project-structure)
