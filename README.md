@@ -37,7 +37,25 @@ Then open the URL Vite prints (by default http://localhost:5173).
 
 ### Structure and state
 
-<!-- Domain model, reducer, persistence. -->
+- **Hand-written types first.** `src/domain/board.ts` defines `Board`, `Note`, `Rect` and the rest
+  as `readonly` types. `NoteColor` is derived from the `NOTE_COLORS` tuple, so type and list cannot
+  drift. `NoteId` is a string branded with a `unique symbol`; the only ways to get one are the
+  `isNoteId` guard (UUID format) and `createNoteId()`.
+- **Zod schemas are checked against the types.** `noteSchema` and `boardSchema` end in
+  `satisfies z.ZodType<Note>` / `z.ZodType<Board>`, so a mismatch is a compile error. `.readonly()`
+  on objects and arrays makes the inferred output match the `readonly` types, with no casts.
+  Limits, duplicate-id and finite-number checks live in the schemas.
+- **One config object per concern.** `src/domain/config.ts` (`noteConfig`, `boardConfig`) holds
+  every limit and default; schemas, geometry, reducer and tests all read from it.
+- **Pure reducer, past-tense events.** `boardReducer(state, action)` handles `noteCreated`,
+  `noteMoved`, `noteResized`, `noteDeleted`, `noteBroughtToFront`, `noteTextChanged`,
+  `noteColorChanged`, `titleChanged` and `boardLoaded` in an exhaustive `switch` ending in
+  `assertNever`. Move and resize carry the final absolute rect, so pointer and (later) keyboard
+  input produce the same action. Unknown ids and no-change actions return the same state object.
+- **Z-order is a counter** (`z`), not array position: bring-to-front sets `z = max + 1`, and
+  `boardLoaded` compacts z to `1..n`. The array order, and so DOM and Tab order, never changes.
+- **Ids come in on actions.** The reducer never calls `crypto` or the clock, so the same
+  state and action always give the same result, and tests need no mocks.
 
 ### Interaction model
 
@@ -76,6 +94,7 @@ Then open the URL Vite prints (by default http://localhost:5173).
 src/
   main.tsx      App entry point
   App.tsx       Page layout
+  domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
                 contrast math (contrast.ts) and its test
 scripts/
@@ -102,6 +121,14 @@ scripts/
 - **Accent hover and active set their own chroma** (0.11 and 0.09) instead of keeping the
   primary's, so the darker states stay inside sRGB for more base greens. A base green that is
   itself very saturated can still push a token out of gamut; the test then fails and names it.
+- **Note ids are UUIDs** (any version, case-insensitive), as made by `crypto.randomUUID()`.
+- **`noteCreated` with an id that already exists is ignored** (same state), to keep ids unique.
+- **Text and title are cut by `slice`**, which counts UTF-16 units, so an emoji at the limit
+  can be split. Schemas count the same way, so they agree.
+- **The reducer does not clamp to the board.** Callers clamp with `clampRectToBoard` before
+  dispatching, so the reducer never needs the board size. Width/height minimums are enforced in
+  the reducer, but x/y are not limited.
+- **`pointInRect` includes the edges.**
 - **The contrast test imports `tokens.css` with Vite's `?raw` suffix** instead of `node:fs`, so
   it needs no Node types and app code cannot type-check against Node-only globals like `process`.
   Vitest replaces CSS with an empty string by default, so `vite.config.ts` sets
@@ -113,3 +140,6 @@ scripts/
   token is named by role and derived from `--color-primary`, dark mode is one
   `@media (prefers-color-scheme: dark)` block in `tokens.css` that redefines the derived tokens
   with inverted lightness steps, plus a `pnpm contrast` run to prove the new pairs.
+- **Undo/redo.** Cut: not needed for the core features. State changes are already small events on
+  a pure reducer with absolute rects, so undo can be added as a history of previous states plus a
+  `noteRestored` action (for deleted notes) without changing existing actions.
