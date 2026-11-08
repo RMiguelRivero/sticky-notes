@@ -1,0 +1,74 @@
+.note-menu {
+  position: relative;
+  flex: none;
+}
+
+.note-menu__trigger {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.note-menu__trigger:hover,
+.note-menu__trigger[aria-expanded="true"] {
+  background: color-mix(in oklch, var(--color-text) 12%, transparent);
+}
+
+/* Three dots drawn with a gradient, so no icon library is needed. */
+.note-menu__dots {
+  width: 14px;
+  height: 4px;
+  background-image: radial-gradient(circle, var(--color-text) 1.6px, transparent 2px);
+  background-size: 4.67px 4px;
+}
+
+.note-menu__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 152px;
+  padding: 4px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  box-shadow: 0 6px 16px color-mix(in oklch, var(--color-text) 25%, transparent);
+}
+
+.note-menu__item {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-menu__item:hover,
+.note-menu__item[aria-expanded="true"] {
+  background: color-mix(in oklch, var(--color-text) 8%, transparent);
+}
+
+.note-menu__item--danger {
+  color: var(--color-danger-active);
+}
+
+/* Inside the menu the color choices are a row under "Select color", spread across the full width. */
+.note-menu__panel .color-picker {
+  justify-content: space-between;
+  padding: 4px 10px 8px;
+}

@@ -4,8 +4,11 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border);
+  border-radius: 2px;
   color: var(--color-text);
-  overflow: hidden;
+  /* Visible, so the options menu can open over the note; the text area clips its own text. */
+  overflow: visible;
+  box-shadow: 0 3px 8px color-mix(in oklch, var(--color-text) 22%, transparent);
 }
 
 .note[data-over-trash="true"] {
@@ -14,17 +17,25 @@
   outline-offset: -2px;
 }
 
-.note__move {
+/* The header is a darker bar: the move area fills it, and the options menu sits on its right. */
+.note__header {
   flex: none;
-  height: 28px;
-  padding: 0 8px;
-  border: 0;
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  padding-left: 0;
   border-bottom: 1px solid var(--color-border);
+  background: color-mix(in oklch, var(--color-text) 7%, transparent);
+  border-radius: 2px 2px 0 0;
+}
+
+.note__move {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.75rem;
-  text-align: left;
   cursor: grab;
   touch-action: none;
 }
@@ -41,14 +52,6 @@ textarea.note__text {
   resize: none;
   overflow: auto;
   overflow-wrap: anywhere;
-}
-
-/* The resize handle sits over the right 24px of this row. */
-.note__footer {
-  flex: none;
-  display: flex;
-  align-items: center;
-  height: 24px;
 }
 
 .note__resize {

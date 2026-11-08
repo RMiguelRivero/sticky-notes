@@ -2,7 +2,7 @@ import { type Dispatch, memo, type PointerEvent as ReactPointerEvent } from 'rea
 import type { NoteId, Note as NoteModel, Rect } from '../domain/board.ts'
 import type { BoardAction } from '../domain/boardReducer.ts'
 import { noteConfig } from '../domain/config.ts'
-import { ColorPicker } from './ColorPicker.tsx'
+import { NoteMenu } from './NoteMenu.tsx'
 import './Note.css'
 
 type Props = {
@@ -51,13 +51,15 @@ function NoteComponent({
       }}
       onPointerDownCapture={() => dispatch({ type: 'noteBroughtToFront', id: note.id })}
     >
-      <button
-        type="button"
-        className="note__move"
-        onPointerDown={(event) => onMoveStart(note.id, event)}
-      >
-        Move note
-      </button>
+      <div className="note__header">
+        <button
+          type="button"
+          className="note__move"
+          aria-label="Move note"
+          onPointerDown={(event) => onMoveStart(note.id, event)}
+        />
+        <NoteMenu noteId={note.id} color={note.color} dispatch={dispatch} />
+      </div>
       <textarea
         className="note__text"
         aria-label="Note text"
@@ -67,9 +69,6 @@ function NoteComponent({
           dispatch({ type: 'noteTextChanged', id: note.id, text: event.target.value })
         }
       />
-      <div className="note__footer">
-        <ColorPicker noteId={note.id} color={note.color} dispatch={dispatch} />
-      </div>
       <button
         type="button"
         className="note__resize"

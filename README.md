@@ -68,8 +68,9 @@ Bonuses (all 5):
 - **III. localStorage.** The default. Notes and the board title are saved automatically about
   400 ms after the last change. Data is stored as `{ version, board }` under one key. If the stored
   data is unreadable it is copied to a backup key and the app starts with an empty board.
-- **IV. Note colors.** Each note has four swatches at the bottom (yellow, pink, blue, orange);
-  click one. The chosen one gets a check mark and a thicker border.
+- **IV. Note colors.** Each note's ⋯ menu has "Select color" with four dots (yellow, pink, blue,
+  orange); click one and the menu closes. The chosen one gets a check mark and a
+  thicker inset ring in a darker tone; the others are plain dots.
 - **V. Async mock REST API.** Add `?storage=api` to the URL to switch. A fake server (300–800 ms
   latency, its own storage key, real-looking status codes) replaces localStorage behind the same
   interface. Add `?fail=0.3` to make 30% of requests fail with 503 (values outside 0–1 are clamped,
@@ -79,6 +80,8 @@ Also:
 
 - **Editable board title.** Click the title in the header (an input styled like the heading) and
   type; it autosaves (debounced), and leaving the field trims it and saves at once.
+- **Options menu.** The ⋯ button at the right of each note's header opens "Select color" and
+  "Delete note". Opening "Select color" hides "Delete note" until the color choices are closed. Deleting from the menu is immediate, like dropping on the trash; undo is MVP+1.
 - **Cancel a drag.** Press `Escape` during any drag to put everything back as it was.
 - **Big boards scroll.** The board fills the window and grows (with scrollbars) to hold notes that
   sit beyond the visible area, so every note stays reachable at any window size or zoom level.
@@ -165,7 +168,7 @@ flush on blur.
 - **Landmarks and layout.** A `header` with the `h1` board title, a `main` with the board, and a
   `section` labelled "Trash". The board is its own scroll container, so at 200% zoom (512×325 CSS
   px) nothing is cut off.
-- **Real buttons.** Every note has two `<button>`s ("Move note" and "Resize note"), at least
+- **Real buttons.** Every note has two `<button>`s ("Move note", "Note options" and "Resize note"), at least
   24×24 px, with the shared 2px focus ring drawn inside the note so it is never clipped. They stay
   in the tab order. Keyboard dragging is not implemented yet (see MVP+1).
 - **Never color alone.** The trash is a dashed border when idle, solid while a move is in progress,
@@ -179,7 +182,7 @@ flush on blur.
   announcements can feed the same element later.
 - **Accessible names.** Title input "Board title"; note text area "Note text"; color group "Note
   color" (visually hidden legend) with radios "Yellow", "Pink", "Blue", "Orange". Swatches are
-  24×24, with the selection shown by a check mark and a thicker border. Each note is an `article`
+  24×24 full-color discs with darker outlines; the selection is shown by a check mark and a thicker inset ring. Each note is an `article`
   labelled "Note: " plus the first five words of its text (with "…" if longer), or "Empty note".
 - `src/styles/base.css` sets a 2px `--color-focus` ring with 2px offset on every `:focus-visible`
   element and turns off transitions and animations under `prefers-reduced-motion: reduce`.
@@ -191,7 +194,7 @@ src/
   main.tsx      App entry point
   App.tsx       Page layout: header, main, the board reducer and persistence wiring
   components/   Board (scroll container, notes, draft outline, trash), Note, TrashZone,
-                BoardTitle (editable h1), ColorPicker (radio swatches), StatusBar (live region), CSS
+                BoardTitle (editable h1), NoteMenu (the ⋯ options menu), ColorPicker (radio dots shown in the menu), StatusBar (live region), CSS
   domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
   interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM),
                 and useDragController, the hook that wires pointer events to it
@@ -251,8 +254,6 @@ scripts/
   text area relies on the 400 ms debounce.
 - **The title is saved untrimmed while typing** (trimming on every change would strip the space
   just typed) and trimmed on blur.
-- **At the minimum note width (120 px)** the four 24 px swatches overlap the resize grip by about
-  2 px; the grip is drawn on top.
 - **`dispatch` is passed as a prop, not through a context.** The tree is at most three levels deep
   and every component that receives it calls it, so nothing only forwards it. It is a stable
   reference, so memoized notes are unaffected. If components that only forward it appear, a

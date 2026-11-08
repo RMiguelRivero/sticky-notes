@@ -1,10 +1,16 @@
+/* A faint dot grid gives the board a surface to draw on; it is decorative, so it has no contrast rule. */
 .board {
   flex: 1;
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface);
+  border-radius: 12px;
+  background-color: var(--color-surface);
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--color-border) 55%, transparent) 1px,
+    transparent 1.5px
+  );
+  background-size: 24px 24px;
 }
 
 .board__canvas {
