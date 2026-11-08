@@ -31,6 +31,16 @@ Then open the URL Vite prints (by default http://localhost:5173).
 
 ## Features
 
+- **Create a note.** Click an empty spot on the board for a default-size note, or press, drag and
+  release to draw one of the size you want (a dashed outline shows the draft). Very small drawings
+  are raised to the minimum size.
+- **Move a note.** Press and drag its top strip ("Move note"). The note stays inside the board.
+- **Resize a note.** Drag the grip in its bottom-right corner.
+- **Delete a note.** Drag it onto the trash strip under the board and release. The strip shows an
+  open lid and "Release to delete" while the pointer is over it.
+- **Cancel.** Press `Escape` during any drag to put everything back as it was.
+- **Big boards scroll.** The board fills the window and grows (with scrollbars) to hold notes that
+  sit beyond the visible area, so every note stays reachable at any window size or zoom level.
 - **Autosave to localStorage (bonus III).** The default. Notes and the board title are saved
   automatically about 400 ms after the last change; there is no save button. Data is stored as
   `{ version, board }` under one key. If the stored data is unreadable it is copied to a backup key
@@ -103,10 +113,34 @@ Then open the URL Vite prints (by default http://localhost:5173).
   is an input (`overTrash`); it only matters while moving, where it turns the release into
   `noteDeleted`. Note ids come from an injected `newNoteId`, called only when a note is created.
 - Covered by unit tests in `drag.test.ts`.
+- **React wiring (`useDragController`).** One hook owns the `DragState` (in React state, plus a
+  ref copy so handlers see the latest value at once) and calls only the pure functions above.
+  A press on the empty canvas, a note's "Move note" button or its resize button calls
+  `setPointerCapture` on that element, so move and up events keep arriving even when the pointer
+  leaves it (for example over the trash). Pointer moves are only stored; one
+  `requestAnimationFrame` per frame turns the latest one into a single state update. On release the
+  exact release position is used, `finish` gives the action and it is dispatched once.
+  `pointercancel`, `lostpointercapture` and `Escape` (a `window` listener that exists only during a
+  gesture) call `cancel()` and dispatch nothing. Listeners and the pending frame are removed when
+  the gesture ends or the component unmounts.
+- **Coordinates.** Pointer positions are `clientX/Y` minus the canvas rect taken at pointer-down
+  (which already accounts for scrolling). The board size given to the drag logic is the canvas size
+  at that moment and stays frozen for the whole gesture. The trash hit test compares the pointer
+  with the trash strip's `getBoundingClientRect()`; the strip sits below the board, outside its
+  rect, so a clamped note can never overlap it.
 
 ### Performance and trade-offs
 
-<!-- What keeps drags cheap; DOM vs canvas. -->
+- **Only the dragged note re-renders.** `Note` is wrapped in `React.memo`. While dragging, the
+  hook's state changes once per frame, so `Board` renders, but each idle note receives identical
+  props: the same `note` object from the reducer, `previewRect={undefined}`, `overTrash={false}`
+  and the same two `useCallback` handlers (which read the current notes through a ref). Only the
+  dragged note gets a new `previewRect`. Nothing is dispatched to the reducer until release.
+- **Why DOM and not canvas.** A note is text, two real buttons and a focusable, labelled element:
+  the browser gives us text layout, wrapping, focus rings, tab order, screen-reader semantics and
+  zoom for free. A canvas would need all of that rebuilt by hand, for a board with a handful of
+  rectangles. Notes are positioned with `left/top/width/height`, which is cheap at this size.
+
 
 ## Accessibility and color system
 
@@ -127,6 +161,20 @@ Then open the URL Vite prints (by default http://localhost:5173).
   any pair below its threshold or any token out of gamut, and `pnpm contrast` writes
   [CONTRAST.md](CONTRAST.md): all 34 checked pairs pass (text 4.57:1 to 15.84:1, including text on
   every note color; borders, focus ring, accent and danger at least 3.22:1).
+- **Board UI (step 6).**
+  - Landmarks: a `header` with the `h1` board title, a `main` with the board, and a `section`
+    labelled "Trash". On a 1024×768 screen (about a 1024×650 viewport once browser chrome is subtracted) the page has no scrollbar; the board itself has no fixed size, fills the remaining space and scrolls on its own. Checked at 1024×650 and at 200% zoom (512×325 CSS px).
+  - Every note has two real `<button>`s ("Move note" and "Resize note"), at least 24x24 px, with
+    the shared 2px focus ring drawn inside the note so it is never clipped. Targets are not
+    removed from the tab order. Keyboard dragging is not implemented yet (see MVP+1).
+  - The trash state is never only a color: idle is a dashed border, while a move is in progress it
+    turns solid, and with the pointer over it the icon changes (open lid), the label changes to
+    "Release to delete" and the text is bold. The dragged note gets a dashed outline and reduced
+    opacity.
+  - The board is a scroll container, so at 200% zoom nothing is cut off. Transitions and
+    animations are already off under `prefers-reduced-motion`; the board adds none.
+  - Notes use `--color-text` on the note color and the existing `--color-*` tokens for borders,
+    the draft outline and the trash; no new color values were added.
 - `src/styles/base.css` sets the body colors and font, a 2px `--color-focus` ring with 2px offset
   on every `:focus-visible` element, and turns off transitions and animations under
   `prefers-reduced-motion: reduce`.
@@ -136,11 +184,13 @@ Then open the URL Vite prints (by default http://localhost:5173).
 ```
 src/
   main.tsx      App entry point
-  App.tsx       Page layout
+  App.tsx       Page layout: header, main, and the board reducer
+  components/   Board (scroll container, notes, draft outline, trash), Note, TrashZone, CSS
   domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
                 contrast math (contrast.ts) and its test
-  interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM)
+  interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM),
+                and useDragController, the hook that wires pointer events to it
   persistence/  Async BoardRepository, localStorage and mock-API implementations, save scheduler,
                 and the React hook that loads and autosaves the board
 scripts/
@@ -167,6 +217,18 @@ scripts/
 - **Accent hover and active set their own chroma** (0.11 and 0.09) instead of keeping the
   primary's, so the darker states stay inside sRGB for more base greens. A base green that is
   itself very saturated can still push a token out of gamut; the test then fails and names it.
+- **The board has no fixed size.** Its logical size is the larger of the visible area and the
+  furthest note edge, measured with a `ResizeObserver`. Drags clamp to the size measured at
+  pointer-down. After a window shrinks, notes that now lie outside are kept where they are and
+  reached by scrolling, never moved.
+- **Only the primary button starts a gesture**, and only one gesture runs at a time (a second
+  pointer is ignored). Creating a note needs the press to land on the empty canvas itself.
+- **The drag kind is written to `<html data-dragging>`** while a gesture passes the drag
+  threshold, so cursor and `user-select: none` rules apply to the whole page. It is removed when
+  the gesture ends.
+- **The board title is read-only and nothing is saved yet** in this step; the persistence hook
+  exists but is not connected until the note-features step.
+- **Note labels** are "Note: " plus the first five words of the text, or "Empty note".
 - **Note ids are UUIDs** (any version, case-insensitive), as made by `crypto.randomUUID()`.
 - **`noteCreated` with an id that already exists is ignored** (same state), to keep ids unique.
 - **Text and title are cut by `slice`**, which counts UTF-16 units, so an emoji at the limit
@@ -201,6 +263,13 @@ scripts/
 
 ## MVP+1: what's next and where I cut corners
 
+- **Keyboard and button alternatives for dragging.** Cut to stay in the time box; today create,
+  move and resize need a pointer. The move and resize handles are already real `<button>`s with
+  names, and move/resize actions carry absolute rects, so keyboard handlers can dispatch the same
+  `noteMoved` / `noteResized` actions without changing the reducer or the layout.
+- **Auto-scroll while dragging near the board edge.** Cut: the board size is frozen for a gesture,
+  so a long move across a scrolled board needs the user to scroll first. It would add a scroll
+  step inside the existing per-frame update.
 - **Dark mode.** Cut to stay in the time box; the app ships a light theme only. Because every
   token is named by role and derived from `--color-primary`, dark mode is one
   `@media (prefers-color-scheme: dark)` block in `tokens.css` that redefines the derived tokens

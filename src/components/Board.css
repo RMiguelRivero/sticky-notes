@@ -1,0 +1,37 @@
+.board {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.board__canvas {
+  position: relative;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.board__draft {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--color-border-strong);
+  pointer-events: none;
+}
+
+:root[data-dragging] {
+  user-select: none;
+}
+
+:root[data-dragging="move"] * {
+  cursor: grabbing;
+}
+
+:root[data-dragging="resize"] * {
+  cursor: nwse-resize;
+}
+
+:root[data-dragging="create"] * {
+  cursor: crosshair;
+}

@@ -1,0 +1,69 @@
+.note {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+.note[data-over-trash="true"] {
+  opacity: 0.6;
+  outline: 2px dashed var(--color-danger);
+  outline-offset: -2px;
+}
+
+.note__move {
+  flex: none;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+}
+
+.note__text {
+  flex: 1;
+  margin: 0;
+  padding: 8px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.note__resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+/* The grip is a corner triangle in the border color, so it stays visible on every note color. */
+.note__resize::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 12px;
+  height: 12px;
+  background: linear-gradient(135deg, transparent 50%, var(--color-border-strong) 50%);
+}
+
+/* Focus rings sit inside the note so overflow: hidden cannot clip them. */
+.note__move:focus-visible,
+.note__resize:focus-visible {
+  outline-offset: -3px;
+}

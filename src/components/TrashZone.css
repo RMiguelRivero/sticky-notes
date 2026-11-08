@@ -1,0 +1,25 @@
+.trash {
+  flex: none;
+  box-sizing: border-box;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* The border style changes (dashed to solid), not only the color. */
+.trash[data-armed="true"] {
+  border-style: solid;
+}
+
+.trash[data-over="true"] {
+  border-color: var(--color-danger);
+  background: oklch(from var(--color-danger) 0.95 0.04 h);
+  color: var(--color-danger-active);
+  font-weight: 600;
+}

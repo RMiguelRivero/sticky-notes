@@ -1,0 +1,38 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 16px 24px;
+  gap: 12px;
+}
+
+.app__header {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app__title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.app__hint {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+}
+
+.app__status {
+  min-width: 120px;
+}
+
+.app__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
