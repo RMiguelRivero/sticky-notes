@@ -59,7 +59,21 @@ Then open the URL Vite prints (by default http://localhost:5173).
 
 ### Interaction model
 
-<!-- Drag state machine and how React wires it up. -->
+- **`src/interaction/drag.ts` is a pure state machine** for pointer gestures. `DragState` is a
+  union on `kind`: `idle`, `creating`, `moving`, `resizing`. Inputs are plain board-relative points,
+  outputs are plain data; no React, no DOM.
+- **Transitions:** `startCreating` / `startMoving` / `startResizing` begin a gesture, `update` sets
+  the current point (and `overTrash` while moving), `finish` returns the `BoardAction` to dispatch
+  or `null`, and `cancel` goes back to `idle` (Escape, `pointercancel`, lost capture).
+- **Commit on release only.** While dragging, `previewRect(state, board)` gives the rect to draw,
+  and it is the same rect `finish` commits. Nothing reaches the reducer until `finish`.
+- **Click vs drag** is decided from `origin` and `current` with `dragConfig.threshold` (4 px), not
+  stored. A click on empty board creates a default-size note, a click on a header or handle does
+  nothing.
+- **Actions carry the final absolute rect**, clamped to the board with the geometry helpers. Trash
+  is an input (`overTrash`); it only matters while moving, where it turns the release into
+  `noteDeleted`. Note ids come from an injected `newNoteId`, called only when a note is created.
+- Covered by unit tests in `drag.test.ts`.
 
 ### Performance and trade-offs
 
@@ -97,6 +111,7 @@ src/
   domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
                 contrast math (contrast.ts) and its test
+  interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM)
 scripts/
   contrast.ts   Writes CONTRAST.md from the tokens (`pnpm contrast`)
 ```
@@ -129,6 +144,12 @@ scripts/
   dispatching, so the reducer never needs the board size. Width/height minimums are enforced in
   the reducer, but x/y are not limited.
 - **`pointInRect` includes the edges.**
+- **A drag starts when the pointer has moved at least `dragConfig.threshold`** (straight-line
+  distance, `>=`).
+- **`previewRect` is `null` below the threshold for all three gestures**, not only create, so
+  a click never shows a ghost. Over the trash, a move below the threshold still deletes.
+- **Resize near the board edge:** the edge limit is applied first and the minimum size after, so
+  a note whose corner is within the minimum size of the edge may extend past it.
 - **The contrast test imports `tokens.css` with Vite's `?raw` suffix** instead of `node:fs`, so
   it needs no Node types and app code cannot type-check against Node-only globals like `process`.
   Vitest replaces CSS with an empty string by default, so `vite.config.ts` sets

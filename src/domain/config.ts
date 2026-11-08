@@ -11,3 +11,7 @@ export const boardConfig = {
   defaultTitle: 'Untitled board',
   maxTitleLength: 80,
 } as const
+
+export const dragConfig = {
+  threshold: 4,
+} as const
