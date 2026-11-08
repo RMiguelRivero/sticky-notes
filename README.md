@@ -204,6 +204,9 @@ scripts/
 
 - Built with Claude Code as a pair programmer: I wrote the specs and rules for each step,
   reviewed every change, and made the design decisions.
+- **Vercel Web Analytics** (cookieless, anonymous) is enabled on the deployed demo through a
+  two-line script in `index.html`, with no npm dependency. Locally the script is simply not found
+  (404), which has no effect on the app.
 - About 6 hours in total, including planning. I stopped at the 6-hour limit the assignment sets;
   the MVP+1 section lists what I deferred.
 - **TypeScript in strict mode**, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
