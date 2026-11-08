@@ -49,6 +49,15 @@ Then open the URL Vite prints (by default http://localhost:5173).
   (with 300-800 ms latency, its own storage key, and real-looking status codes) replaces
   localStorage behind the same interface. Add `?fail=0.3` to make 30% of requests fail with 503
   (any value from 0 to 1; invalid values are ignored). Failed parts are re-sent on the next save.
+- **Editable board title.** The title in the header is an input styled like the heading; typing
+  autosaves (debounced) and leaving the field trims it and saves at once. No save button.
+- **Edit note text (bonus I).** The note body is always an editable text area (2000 characters max).
+  Only the header strip and the resize grip start drags, so selecting text never moves a note.
+- **Bring to front (bonus II).** Pressing anywhere on a note raises it above the others.
+- **Note colors (bonus IV).** Each note has four swatches (yellow, pink, blue, orange) at the
+  bottom. The chosen one gets a check mark and a thicker border.
+- **Save status.** The header shows "Loading…", "Saving…", "All changes saved" or the error
+  ("Couldn't save: ...", in the danger color and in words).
 
 ## Architecture
 
@@ -140,6 +149,20 @@ Then open the URL Vite prints (by default http://localhost:5173).
   the browser gives us text layout, wrapping, focus rings, tab order, screen-reader semantics and
   zoom for free. A canvas would need all of that rebuilt by hand, for a board with a handful of
   rectangles. Notes are positioned with `left/top/width/height`, which is cheap at this size.
+- **Debounce the save, not the input.** The board title and note text update the reducer on every
+  keystroke, so the screen always shows what was typed. Autosave goes through the save scheduler,
+  which waits `persistenceConfig.debounceMs` (400 ms) after the last change, keeps only the latest
+  board and never runs two saves at once. It also flushes on blur and on `pagehide`. A burst of
+  typing is therefore one write, not one per keystroke.
+- **Why `onChange` itself is not debounced.** A controlled input needs its value immediately, so a
+  delayed dispatch would need local state per input, kept in sync with the reducer. It could lose
+  the last characters unless it flushed on blur and unmount, and the "Saving…" status would lag
+  behind the typing. The only gain is fewer re-renders, and a keystroke re-renders one memoized
+  note. If profiling ever showed a cost, the fix is a `useDebouncedCallback` hook with local state,
+  starting with the note textarea, and a flush on blur.
+- **Title is trimmed on blur, not on change.** Trimming on every change would strip the space just
+  typed, so "My board" could not be written. On blur, stray whitespace is cleaned up and the save
+  is flushed.
 
 
 ## Accessibility and color system
@@ -175,6 +198,14 @@ Then open the URL Vite prints (by default http://localhost:5173).
     animations are already off under `prefers-reduced-motion`; the board adds none.
   - Notes use `--color-text` on the note color and the existing `--color-*` tokens for borders,
     the draft outline and the trash; no new color values were added.
+- **One live region (step 7).** The status text in the header is a `<p role="status">`
+  (implicit `aria-live="polite"`) and is the only live region. It announces "Loading…", "Saving…",
+  "All changes saved" and "Couldn't save: <reason>"; a load error message is shown while no save
+  has reported yet. Errors use the danger color plus words. It is a plain component taking a
+  status, so note announcements can feed the same element later.
+- **Accessible names of the new controls.** Title input "Board title"; note text area "Note text";
+  color group "Note color" (visually hidden legend) with radios "Yellow", "Pink", "Blue", "Orange".
+  Swatches are 24x24, with the selection shown by a check mark and a thicker border.
 - `src/styles/base.css` sets the body colors and font, a 2px `--color-focus` ring with 2px offset
   on every `:focus-visible` element, and turns off transitions and animations under
   `prefers-reduced-motion: reduce`.
@@ -186,6 +217,7 @@ src/
   main.tsx      App entry point
   App.tsx       Page layout: header, main, and the board reducer
   components/   Board (scroll container, notes, draft outline, trash), Note, TrashZone, CSS
+                BoardTitle (editable h1), ColorPicker (radio swatches), StatusBar (live region)
   domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
                 contrast math (contrast.ts) and its test
@@ -226,8 +258,14 @@ scripts/
 - **The drag kind is written to `<html data-dragging>`** while a gesture passes the drag
   threshold, so cursor and `user-select: none` rules apply to the whole page. It is removed when
   the gesture ends.
-- **The board title is read-only and nothing is saved yet** in this step; the persistence hook
-  exists but is not connected until the note-features step.
+- **The persistence hook is connected in `App.tsx`.** The repository is created once from the URL
+  query. `boardLoaded` is dispatched once when the loaded board arrives, which returns a new
+  object, so there is one extra save right after load (accepted).
+- **The title is saved untrimmed while typing** (so spaces can be typed) and trimmed on blur.
+- **Status text:** a load error is shown only while the save status is idle; any save status
+  replaces it.
+- **At the minimum note width (120 px)** the four 24 px swatches overlap the resize grip by about
+  2 px; the grip is drawn on top.
 - **Note labels** are "Note: " plus the first five words of the text, or "Empty note".
 - **Note ids are UUIDs** (any version, case-insensitive), as made by `crypto.randomUUID()`.
 - **`noteCreated` with an id that already exists is ignored** (same state), to keep ids unique.

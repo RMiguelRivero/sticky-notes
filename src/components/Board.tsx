@@ -79,6 +79,7 @@ export function Board({ notes, dispatch }: Props) {
                 note={note}
                 previewRect={dragged ? (view.rect ?? undefined) : undefined}
                 overTrash={dragged && view.overTrash}
+                dispatch={dispatch}
                 onMoveStart={onMoveStart}
                 onResizeStart={onResizeStart}
               />

@@ -1,0 +1,10 @@
+.status-bar {
+  margin: 0;
+  text-align: right;
+  color: var(--color-text-muted);
+}
+
+.status-bar[data-error="true"] {
+  color: var(--color-danger);
+  font-weight: bold;
+}

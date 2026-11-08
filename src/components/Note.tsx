@@ -1,5 +1,8 @@
-import { memo, type PointerEvent as ReactPointerEvent } from 'react'
+import { type Dispatch, memo, type PointerEvent as ReactPointerEvent } from 'react'
 import type { NoteId, Note as NoteModel, Rect } from '../domain/board.ts'
+import type { BoardAction } from '../domain/boardReducer.ts'
+import { noteConfig } from '../domain/config.ts'
+import { ColorPicker } from './ColorPicker.tsx'
 import './Note.css'
 
 type Props = {
@@ -7,6 +10,7 @@ type Props = {
   // Set only for the note being dragged, so idle notes get identical props on every frame.
   readonly previewRect: Rect | undefined
   readonly overTrash: boolean
+  readonly dispatch: Dispatch<BoardAction>
   readonly onMoveStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
   readonly onResizeStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
 }
@@ -23,7 +27,14 @@ function noteLabel(text: string): string {
   return `Note: ${excerpt}${words.length > LABEL_WORDS ? '…' : ''}`
 }
 
-function NoteComponent({ note, previewRect, overTrash, onMoveStart, onResizeStart }: Props) {
+function NoteComponent({
+  note,
+  previewRect,
+  overTrash,
+  dispatch,
+  onMoveStart,
+  onResizeStart,
+}: Props) {
   const rect = previewRect ?? note.rect
   return (
     <article
@@ -38,6 +49,7 @@ function NoteComponent({ note, previewRect, overTrash, onMoveStart, onResizeStar
         zIndex: note.z,
         backgroundColor: `var(--note-${note.color})`,
       }}
+      onPointerDownCapture={() => dispatch({ type: 'noteBroughtToFront', id: note.id })}
     >
       <button
         type="button"
@@ -46,7 +58,18 @@ function NoteComponent({ note, previewRect, overTrash, onMoveStart, onResizeStar
       >
         Move note
       </button>
-      <p className="note__text">{note.text}</p>
+      <textarea
+        className="note__text"
+        aria-label="Note text"
+        maxLength={noteConfig.maxTextLength}
+        value={note.text}
+        onChange={(event) =>
+          dispatch({ type: 'noteTextChanged', id: note.id, text: event.target.value })
+        }
+      />
+      <div className="note__footer">
+        <ColorPicker noteId={note.id} color={note.color} dispatch={dispatch} />
+      </div>
       <button
         type="button"
         className="note__resize"

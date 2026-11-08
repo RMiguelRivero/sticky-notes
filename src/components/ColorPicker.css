@@ -1,0 +1,45 @@
+.color-picker {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.color-picker__legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.color-picker__swatch {
+  appearance: none;
+  position: relative;
+  box-sizing: border-box;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.color-picker__swatch:checked {
+  border: 3px solid var(--color-border-strong);
+}
+
+/* The check mark makes the selection visible without relying on color. */
+.color-picker__swatch:checked::after {
+  content: "\2713";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: bold;
+  line-height: 1;
+}
