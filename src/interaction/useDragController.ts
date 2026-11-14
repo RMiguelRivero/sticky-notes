@@ -131,6 +131,9 @@ export function useDragController({
       const { pointerId } = start
       element.setPointerCapture(pointerId)
 
+      const listeners = new AbortController()
+      const { signal } = listeners
+
       function apply(client: Point) {
         session.drag = update(session.drag, toBoardPoint(client), {
           overTrash: isOverTrash(client),
@@ -140,11 +143,7 @@ export function useDragController({
 
       function stop(next: DragState) {
         if (session.frame !== null) cancelAnimationFrame(session.frame)
-        element.removeEventListener('pointermove', onPointerMove)
-        element.removeEventListener('pointerup', onPointerUp)
-        element.removeEventListener('pointercancel', onAbort)
-        element.removeEventListener('lostpointercapture', onAbort)
-        window.removeEventListener('keydown', onKeyDown)
+        listeners.abort()
         if (element.hasPointerCapture(pointerId)) element.releasePointerCapture(pointerId)
         sessionRef.current = null
         setGesture({ drag: next, board })
@@ -194,11 +193,11 @@ export function useDragController({
       sessionRef.current = session
       setGesture({ drag: session.drag, board })
 
-      element.addEventListener('pointermove', onPointerMove)
-      element.addEventListener('pointerup', onPointerUp)
-      element.addEventListener('pointercancel', onAbort)
-      element.addEventListener('lostpointercapture', onAbort)
-      window.addEventListener('keydown', onKeyDown)
+      element.addEventListener('pointermove', onPointerMove, { signal })
+      element.addEventListener('pointerup', onPointerUp, { signal })
+      element.addEventListener('pointercancel', onAbort, { signal })
+      element.addEventListener('lostpointercapture', onAbort, { signal })
+      window.addEventListener('keydown', onKeyDown, { signal })
     },
     [canvasRef, trashRef, dispatch],
   )
