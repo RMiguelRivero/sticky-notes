@@ -1,4 +1,5 @@
 import type { Dispatch } from 'react'
+import { memo } from 'react'
 import type { BoardAction } from '../domain/boardReducer.ts'
 import { boardConfig } from '../domain/config.ts'
 import './BoardTitle.css'
@@ -9,7 +10,7 @@ type Props = {
   readonly flush: () => void
 }
 
-export function BoardTitle({ title, dispatch, flush }: Props) {
+function BoardTitleComponent({ title, dispatch, flush }: Props) {
   return (
     <h1 className="board-title">
       <input
@@ -31,3 +32,5 @@ export function BoardTitle({ title, dispatch, flush }: Props) {
     </h1>
   )
 }
+
+export const BoardTitle = memo(BoardTitleComponent)

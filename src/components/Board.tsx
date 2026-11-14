@@ -1,4 +1,4 @@
-import { type Dispatch, useEffect, useMemo, useRef, useState } from 'react'
+import { type Dispatch, memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { Note as NoteModel, Size } from '../domain/board.ts'
 import type { BoardAction } from '../domain/boardReducer.ts'
 import { useDragController } from '../interaction/useDragController.ts'
@@ -22,7 +22,7 @@ function logicalBoardSize(viewport: Size, notes: readonly NoteModel[]): Size {
   )
 }
 
-export function Board({ notes, dispatch }: Props) {
+function BoardComponent({ notes, dispatch }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const trashRef = useRef<HTMLElement>(null)
@@ -103,3 +103,5 @@ export function Board({ notes, dispatch }: Props) {
     </>
   )
 }
+
+export const Board = memo(BoardComponent)
