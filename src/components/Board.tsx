@@ -99,7 +99,7 @@ export function Board({ notes, dispatch }: Props) {
           )}
         </div>
       </div>
-      <TrashZone ref={trashRef} armed={view.kind === 'move'} pointerOver={view.overTrash} />
+      <TrashZone ref={trashRef} pointerOver={view.overTrash} />
     </>
   )
 }

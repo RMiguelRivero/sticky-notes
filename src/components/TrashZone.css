@@ -6,19 +6,14 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  border: 2px dashed var(--color-border-strong);
+  border: 1px solid var(--color-border-strong);
   border-radius: 12px;
   background: var(--color-surface);
   color: var(--color-text);
 }
 
-/* The border style changes (dashed to solid), not only the color. */
-.trash[data-armed="true"] {
-  border-style: solid;
-}
-
 .trash[data-over="true"] {
-  border-color: var(--color-danger);
+  border: 2px dashed var(--color-danger);
   background: oklch(from var(--color-danger) 0.95 0.04 h);
   color: var(--color-danger-active);
   font-weight: 600;

@@ -1,10 +1,9 @@
 import type { RefObject } from 'react'
+import { memo } from 'react'
 import './TrashZone.css'
 
 type Props = {
   readonly ref: RefObject<HTMLElement | null>
-  // A note is being moved: the zone shows where it can be dropped.
-  readonly armed: boolean
   readonly pointerOver: boolean
 }
 
@@ -29,13 +28,12 @@ function TrashIcon({ open }: { readonly open: boolean }) {
   )
 }
 
-export function TrashZone({ ref, armed, pointerOver }: Props) {
+function TrashZoneComponent({ ref, pointerOver }: Props) {
   return (
     <section
       ref={ref}
       className="trash"
       aria-label="Trash"
-      data-armed={armed ? 'true' : undefined}
       data-over={pointerOver ? 'true' : undefined}
     >
       <TrashIcon open={pointerOver} />
@@ -43,3 +41,5 @@ export function TrashZone({ ref, armed, pointerOver }: Props) {
     </section>
   )
 }
+
+export const TrashZone = memo(TrashZoneComponent)
