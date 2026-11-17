@@ -16,6 +16,11 @@ export const dragConfig = {
   threshold: 4,
 } as const
 
+export const keyboardConfig = {
+  step: 10,
+  shiftStep: 40,
+} as const
+
 export const persistenceConfig = {
   debounceMs: 400,
   mockLatencyMs: { min: 300, max: 800 },

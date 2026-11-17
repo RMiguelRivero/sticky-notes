@@ -1,7 +1,7 @@
 import { type Dispatch, memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { Note as NoteModel, Size } from '../domain/board.ts'
 import type { BoardAction } from '../domain/boardReducer.ts'
-import { useDragController } from '../interaction/useDragController.ts'
+import { useNoteInteractions } from '../interaction/useNoteInteractions.ts'
 import './Board.css'
 import { Note } from './Note.tsx'
 import { TrashZone } from './TrashZone.tsx'
@@ -43,8 +43,8 @@ function BoardComponent({ notes, dispatch }: Props) {
     return () => observer.disconnect()
   }, [])
 
-  const { view, onCanvasPointerDown, onCanvasDoubleClick, onMoveStart, onResizeStart } =
-    useDragController({
+  const { view, onCanvasPointerDown, onCanvasDoubleClick, onMoveStart, onResizeStart, onKey } =
+    useNoteInteractions({
       notes,
       dispatch,
       canvasRef,
@@ -85,6 +85,7 @@ function BoardComponent({ notes, dispatch }: Props) {
                 dispatch={dispatch}
                 onMoveStart={onMoveStart}
                 onResizeStart={onResizeStart}
+                onKey={onKey}
               />
             )
           })}

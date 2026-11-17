@@ -1,5 +1,6 @@
 import {
   type Dispatch,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
@@ -32,6 +33,7 @@ import {
   startResizing,
   update,
 } from './drag.ts'
+import { applyKeyboardStep, type Direction, type KeyboardKind } from './keyboard.ts'
 
 type Gesture = {
   readonly drag: DragState
@@ -86,20 +88,32 @@ type Options = {
   readonly trashRef: RefObject<HTMLElement | null>
 }
 
-export type DragController = {
+const ARROW_DIRECTIONS: Readonly<Partial<Record<string, Direction>>> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+}
+
+export type NoteInteractions = {
   readonly view: DragView
   readonly onCanvasPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
   readonly onCanvasDoubleClick: (event: ReactMouseEvent<HTMLElement>) => void
   readonly onMoveStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
   readonly onResizeStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
+  readonly onKey: (
+    noteId: NoteId,
+    kind: KeyboardKind,
+    event: ReactKeyboardEvent<HTMLElement>,
+  ) => void
 }
 
-export function useDragController({
+export function useNoteInteractions({
   notes,
   dispatch,
   canvasRef,
   trashRef,
-}: Options): DragController {
+}: Options): NoteInteractions {
   const [gesture, setGesture] = useState<Gesture>(idleGesture)
   const sessionRef = useRef<Session | null>(null)
   // Lets the start handlers stay stable while still finding the note's current rect.
@@ -250,11 +264,40 @@ export function useDragController({
     [begin],
   )
 
+  const onKey = useCallback(
+    (noteId: NoteId, kind: KeyboardKind, event: ReactKeyboardEvent<HTMLElement>) => {
+      const direction = ARROW_DIRECTIONS[event.key]
+      // Leave Alt+Arrow (browser history) and similar shortcuts alone.
+      if (direction === undefined || event.altKey || event.ctrlKey || event.metaKey) return
+      // Only the handle's own keys; stops the board from scrolling.
+      event.preventDefault()
+      const canvas = canvasRef.current
+      const note = notesRef.current.find((candidate) => candidate.id === noteId)
+      if (canvas === null || note === undefined || sessionRef.current !== null) return
+      const canvasRect = canvas.getBoundingClientRect()
+      const rect = applyKeyboardStep({
+        rect: note.rect,
+        kind,
+        direction,
+        shift: event.shiftKey,
+        board: { width: canvasRect.width, height: canvasRect.height },
+      })
+      if (rect === null) return
+      const action: BoardAction =
+        kind === 'move'
+          ? { type: 'noteMoved', id: noteId, rect }
+          : { type: 'noteResized', id: noteId, rect }
+      dispatch(action)
+    },
+    [canvasRef, dispatch],
+  )
+
   return {
     view: toDragView(gesture),
     onCanvasPointerDown,
     onCanvasDoubleClick,
     onMoveStart,
     onResizeStart,
+    onKey,
   }
 }

@@ -2,7 +2,7 @@ import { assertNever } from '../utils/assertNever.ts'
 import type { XOR } from '../utils/types/xor.ts'
 import type { Board, Note, NoteColor, NoteId, Rect } from './board.ts'
 import { boardConfig, noteConfig } from './config.ts'
-import { enforceMinSize } from './geometry.ts'
+import { enforceMinSize, sameRect } from './geometry.ts'
 
 export type NoteCreatedAction = {
   readonly type: 'noteCreated'
@@ -65,10 +65,6 @@ function maxZ(notes: readonly Note[]): number {
 
 function withMinSize(rect: Rect): Rect {
   return { x: rect.x, y: rect.y, ...enforceMinSize(rect) }
-}
-
-function sameRect(a: Rect, b: Rect): boolean {
-  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
 }
 
 // Returns the same state when the note is unknown or the update changes nothing.

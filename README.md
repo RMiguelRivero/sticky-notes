@@ -45,7 +45,7 @@ Then open the URL Vite prints (by default http://localhost:5173).
 
 ## Features
 
-Everything is used with the mouse; there are no save buttons.
+Creating and deleting need a pointer (mouse, touch or pen); moving and resizing also work with the keyboard. There are no save buttons.
 
 Core features (all 4):
 
@@ -64,7 +64,8 @@ Bonuses (all 5):
 - **I. Text editing.** Click into a note's body and type; it is always an editable text area
   (2000 characters max). Only the top strip and the resize grip start drags, so selecting text
   never moves a note.
-- **II. Bring to front.** Pressing anywhere on a note raises it above the others.
+- **II. Bring to front.** Pressing anywhere on a note, or moving focus into it (also with Tab),
+  raises it above the others.
 - **III. localStorage.** The default. Notes and the board title are saved automatically about
   400 ms after the last change. Data is stored as `{ version, board }` under one key. If the stored
   data is unreadable it is copied to a backup key and the app starts with an empty board.
@@ -82,6 +83,20 @@ Also:
   type; it autosaves (debounced), and leaving the field trims it and saves at once.
 - **Options menu.** The ⋯ button at the right of each note's header opens "Select color" and
   "Delete note". Opening "Select color" hides "Delete note" until the color choices are closed. Deleting from the menu is immediate, like dropping on the trash; undo is MVP+1.
+- **Keyboard move and resize.** Tab to a note's "Move note" or "Resize note" button; the keys
+  below work only while that button has focus. Handled keys do not scroll the board. Tab, Enter,
+  Space and Escape are untouched, so there is no keyboard trap.
+
+  | Focused button | Key | Effect |
+  | --- | --- | --- |
+  | Move note | Arrow keys | Move the note 10 px in that direction (stays inside the board) |
+  | Resize note | Right / Down | Grow width / height by 10 px (stops at the board edge) |
+  | Resize note | Left / Up | Shrink width / height by 10 px (stops at 120×120) |
+  | Either | Shift + Arrow | Same, with 50 px steps |
+
+  Holding a key repeats. A press that would change nothing (at an edge or the minimum) does
+  nothing. Alt, Ctrl and Cmd with an arrow are left to the browser. Creating and deleting have no
+  keyboard or button alternative yet (see MVP+1).
 - **Cancel a drag.** Press `Escape` during any drag to put everything back as it was.
 - **Big boards scroll.** The board fills the window and grows (with scrollbars) to hold notes that
   sit beyond the visible area, so every note stays reachable at any window size or zoom level.
@@ -118,7 +133,7 @@ Pointer gestures are a pure state machine in `src/interaction/drag.ts`: `DragSta
 (`idle | creating | moving | resizing`), `update` takes board-relative points and an `overTrash`
 flag, `previewRect` gives the rect to draw, and `finish` returns the one `BoardAction` to dispatch
 (the same rect as the preview; a move released over the trash becomes `noteDeleted`) or `null`.
-A click and a drag are told apart by a 4 px threshold. The `useDragController` hook is the only
+A click and a drag are told apart by a 4 px threshold. The `useNoteInteractions` hook is the only
 React wiring: it calls `setPointerCapture` on the pressed element, turns pointer moves into at most
 one state update per `requestAnimationFrame`, and cancels on `Escape`, `pointercancel` or lost
 capture; nothing reaches the reducer until release. Persistence sits behind an async
@@ -170,7 +185,12 @@ flush on blur.
   px) nothing is cut off.
 - **Real buttons.** Every note has two `<button>`s ("Move note", "Note options" and "Resize note"), at least
   24×24 px, with the shared 2px focus ring drawn inside the note so it is never clipped. They stay
-  in the tab order. Keyboard dragging is not implemented yet (see MVP+1).
+  in the tab order.
+- **Keyboard alternatives (WCAG 2.1.1, 2.5.7).** The Move and Resize buttons take arrow keys
+  (10 px, 50 px with Shift), each press committing one move or resize. 2.5.7 is met only for move
+  and resize: creating and deleting still need a pointer. No keyboard traps (2.1.2).
+- **Focus not obscured (WCAG 2.4.11).** Focus entering a note raises it to the front, so its
+  focused handle is never hidden under another note.
 - **Never color alone.** The trash is a dashed border when idle, solid while a move is in progress,
   and with the pointer over it the icon changes (open lid), the label changes to "Release to delete"
   and the text is bold. The dragged note gets a dashed outline and reduced opacity. Errors use the
@@ -197,7 +217,8 @@ src/
                 BoardTitle (editable h1), NoteMenu (the ⋯ options menu), ColorPicker (radio dots shown in the menu), StatusBar (live region), CSS
   domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
   interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM),
-                and useDragController, the hook that wires pointer events to it
+                keyboard.ts (pure: arrow key + Shift -> the note's new rect or null, clamped),
+                and useNoteInteractions, the hook that wires pointer and key events to them
   persistence/  Async BoardRepository, localStorage and mock-API implementations, mock server,
                 save scheduler, and the React hook that loads and autosaves the board
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
@@ -286,24 +307,24 @@ scripts/
 - **After a failed save there are no retry timers**; the next change tries again. With the mock
   API the unconfirmed requests are re-sent then, with localStorage the whole board is.
 
+- **Keyboard assumptions.** Arrow keys act directly on the focused handle (no grab mode). Steps
+  are 10 px and 50 px with Shift (`keyboardConfig`). The board size is read from the canvas at
+  key-press time. Key presses are ignored during a pointer drag. Raising a note on focus and on
+  pointer press can dispatch `noteBroughtToFront` twice; the reducer treats the second as a no-op.
+
 ## MVP+1: what's next and where I cut corners
 
 Everything here was cut to stay inside the time box; each item says how the current design
 prepares for it.
 
-- **Keyboard and button alternatives for dragging (WCAG 2.5.7, 2.1.1).** Today create, move and
-  resize need a pointer. The move and resize handles are already real, named `<button>`s, and
-  move/resize actions carry absolute rects, so arrow-key handlers can dispatch the same
-  `noteMoved` / `noteResized` actions without changing the reducer or the layout.
-- **"New note" button.** I left creation to the board itself. A button would dispatch the same
+- **"New note" button, and Escape from the note text.** Creation and deletion have no keyboard
+  alternative, so 2.5.7 is only met for move and resize. I left creation to the board itself. A button would dispatch the same
   `noteCreated` action at a default position, and would also give keyboard users a way to create
   notes.
-- **Bring to front on focus (WCAG 2.4.11).** I only raise a note on pointer press, so a focused
-  note can sit partly under another. Calling the existing `noteBroughtToFront` action from
-  `onFocus` is the whole change; Tab order does not move, because z-order is a counter.
-- **Announcements for note changes (WCAG 4.1.3).** I only announce save status. The status bar is
-  already the single live region and takes plain data, so "Note moved", "Note deleted" and so on
-  can feed the same element.
+- **Announcements for note changes, including keyboard moves and resizes (WCAG 4.1.3).** I only
+  announce save status. The status bar is the single live region, and a note announcement there
+  would overwrite "Saving…" / "All changes saved". The open question is a place that does not
+  overwrite the save status (for example a second, separate polite region).
 - **Undo for delete.** I accepted that a dropped note is gone. State changes are small events on a
   pure reducer, so undo is a history of previous states (or a `noteRestored` action) without
   changing existing actions; the full undo/redo can grow from there.

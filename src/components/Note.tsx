@@ -1,7 +1,14 @@
-import { type Dispatch, memo, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  type ChangeEvent,
+  type Dispatch,
+  memo,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { NoteId, Note as NoteModel, Rect } from '../domain/board.ts'
 import type { BoardAction } from '../domain/boardReducer.ts'
 import { noteConfig } from '../domain/config.ts'
+import type { KeyboardKind } from '../interaction/keyboard.ts'
 import { NoteMenu } from './NoteMenu.tsx'
 import './Note.css'
 
@@ -13,6 +20,11 @@ type Props = {
   readonly dispatch: Dispatch<BoardAction>
   readonly onMoveStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
   readonly onResizeStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
+  readonly onKey: (
+    noteId: NoteId,
+    kind: KeyboardKind,
+    event: ReactKeyboardEvent<HTMLElement>,
+  ) => void
 }
 
 const LABEL_WORDS = 5
@@ -34,8 +46,21 @@ function NoteComponent({
   dispatch,
   onMoveStart,
   onResizeStart,
+  onKey,
 }: Props) {
   const rect = previewRect ?? note.rect
+  const bringToFront = () => dispatch({ type: 'noteBroughtToFront', id: note.id })
+  const handleMovePointerDown = (event: ReactPointerEvent<HTMLElement>) =>
+    onMoveStart(note.id, event)
+  const handleMoveKeyDown = (event: ReactKeyboardEvent<HTMLElement>) =>
+    onKey(note.id, 'move', event)
+  const handleResizePointerDown = (event: ReactPointerEvent<HTMLElement>) =>
+    onResizeStart(note.id, event)
+  const handleResizeKeyDown = (event: ReactKeyboardEvent<HTMLElement>) =>
+    onKey(note.id, 'resize', event)
+  const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) =>
+    dispatch({ type: 'noteTextChanged', id: note.id, text: event.target.value })
+
   return (
     <article
       className="note"
@@ -49,14 +74,16 @@ function NoteComponent({
         zIndex: note.z,
         backgroundColor: `var(--note-${note.color})`,
       }}
-      onPointerDownCapture={() => dispatch({ type: 'noteBroughtToFront', id: note.id })}
+      onPointerDownCapture={bringToFront}
+      onFocus={bringToFront}
     >
       <div className="note__header">
         <button
           type="button"
           className="note__move"
           aria-label="Move note"
-          onPointerDown={(event) => onMoveStart(note.id, event)}
+          onPointerDown={handleMovePointerDown}
+          onKeyDown={handleMoveKeyDown}
         />
         <NoteMenu noteId={note.id} color={note.color} dispatch={dispatch} />
       </div>
@@ -65,15 +92,14 @@ function NoteComponent({
         aria-label="Note text"
         maxLength={noteConfig.maxTextLength}
         value={note.text}
-        onChange={(event) =>
-          dispatch({ type: 'noteTextChanged', id: note.id, text: event.target.value })
-        }
+        onChange={handleTextChange}
       />
       <button
         type="button"
         className="note__resize"
         aria-label="Resize note"
-        onPointerDown={(event) => onResizeStart(note.id, event)}
+        onPointerDown={handleResizePointerDown}
+        onKeyDown={handleResizeKeyDown}
       />
     </article>
   )

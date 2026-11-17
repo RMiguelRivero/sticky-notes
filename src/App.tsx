@@ -25,7 +25,7 @@ function App() {
       <header className="app__header">
         <div className="app__heading">
           <BoardTitle title={board.title} dispatch={dispatch} flush={flush} />
-          <p className="app__hint">Drag on the board to draw a note, or click to add one.</p>
+          <p className="app__hint">Drag on the board to draw a note, or double-click to add one.</p>
         </div>
         <div className="app__status">
           <StatusBar status={status} />
