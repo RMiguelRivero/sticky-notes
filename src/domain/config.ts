@@ -1,6 +1,6 @@
 export const noteConfig = {
   minWidth: 120,
-  minHeight: 90,
+  minHeight: 120,
   defaultWidth: 200,
   defaultHeight: 200,
   maxTextLength: 2000,
@@ -8,7 +8,7 @@ export const noteConfig = {
 } as const
 
 export const boardConfig = {
-  defaultTitle: 'Untitled board',
+  defaultTitle: 'Untitled',
   maxTitleLength: 80,
 } as const
 

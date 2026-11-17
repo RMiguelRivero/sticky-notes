@@ -50,8 +50,8 @@ Everything is used with the mouse; there are no save buttons.
 Core features (all 4):
 
 - **Create a note at a given position and size.** Press on an empty spot of the board, drag and
-  release to draw the note (a dashed outline shows the draft). A plain click adds a default-size
-  (200×200) note with its top-left corner at the click. Very small drawings are raised to the minimum size (120×90).
+  release to draw the note (a dashed outline shows the draft). A double-click adds a default-size
+  (200×200) note with its top-left corner at the click; a single click does nothing. Very small drawings are raised to the minimum size (120×120).
 - **Resize by dragging.** Drag the grip in the note's bottom-right corner.
 - **Move by dragging.** Press and drag the note's top strip ("Move note"). The note stays inside
   the board.

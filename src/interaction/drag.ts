@@ -154,16 +154,29 @@ export function previewRect(state: DragState, board: Size): Rect | null {
   }
 }
 
+export function createAtPoint(
+  point: Point,
+  context: Pick<DragContext, 'board' | 'newNoteId'>,
+): BoardAction {
+  return {
+    type: 'noteCreated',
+    id: context.newNoteId(),
+    rect: clickRect(point, context.board),
+  }
+}
+
 export function finish(state: DragState, context: DragContext): BoardAction | null {
   switch (state.kind) {
     case 'idle':
       return null
-    case 'creating': {
-      const rect = isDragging(state)
-        ? createdRect(state.origin, state.current, context.board)
-        : clickRect(state.origin, context.board)
-      return { type: 'noteCreated', id: context.newNoteId(), rect }
-    }
+    case 'creating':
+      return isDragging(state)
+        ? {
+            type: 'noteCreated',
+            id: context.newNoteId(),
+            rect: createdRect(state.origin, state.current, context.board),
+          }
+        : null
     case 'moving': {
       if (context.overTrash) return { type: 'noteDeleted', id: state.noteId }
       const rect = previewRect(state, context.board)

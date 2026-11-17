@@ -43,12 +43,13 @@ function BoardComponent({ notes, dispatch }: Props) {
     return () => observer.disconnect()
   }, [])
 
-  const { view, onCanvasPointerDown, onMoveStart, onResizeStart } = useDragController({
-    notes,
-    dispatch,
-    canvasRef,
-    trashRef,
-  })
+  const { view, onCanvasPointerDown, onCanvasDoubleClick, onMoveStart, onResizeStart } =
+    useDragController({
+      notes,
+      dispatch,
+      canvasRef,
+      trashRef,
+    })
 
   // The page root carries the drag kind so selection and cursor rules cover the whole page.
   useEffect(() => {
@@ -65,11 +66,13 @@ function BoardComponent({ notes, dispatch }: Props) {
   return (
     <>
       <div className="board" ref={scrollRef}>
+        {/** biome-ignore lint/a11y/noStaticElementInteractions: allow interaction on this elevement */}
         <div
           className="board__canvas"
           ref={canvasRef}
           style={{ width: boardSize.width, height: boardSize.height }}
           onPointerDown={onCanvasPointerDown}
+          onDoubleClick={onCanvasDoubleClick}
         >
           {notes.map((note) => {
             const dragged = note.id === view.noteId

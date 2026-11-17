@@ -1,5 +1,6 @@
 import {
   type Dispatch,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useCallback,
@@ -20,6 +21,7 @@ import { pointInRect } from '../domain/geometry.ts'
 import { assertNever } from '../utils/assertNever.ts'
 import {
   cancel,
+  createAtPoint,
   type DragState,
   finish,
   idleDrag,
@@ -87,6 +89,7 @@ type Options = {
 export type DragController = {
   readonly view: DragView
   readonly onCanvasPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
+  readonly onCanvasDoubleClick: (event: ReactMouseEvent<HTMLElement>) => void
   readonly onMoveStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
   readonly onResizeStart: (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => void
 }
@@ -211,6 +214,24 @@ export function useDragController({
     [begin],
   )
 
+  const onCanvasDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      // Only the empty canvas creates notes; double-clicks on notes bubble up here too.
+      if (event.target !== event.currentTarget || event.button !== 0) return
+      const canvasRect = event.currentTarget.getBoundingClientRect()
+      dispatch(
+        createAtPoint(
+          { x: event.clientX - canvasRect.left, y: event.clientY - canvasRect.top },
+          {
+            board: { width: canvasRect.width, height: canvasRect.height },
+            newNoteId: createNoteId,
+          },
+        ),
+      )
+    },
+    [dispatch],
+  )
+
   const onMoveStart = useCallback(
     (noteId: NoteId, event: ReactPointerEvent<HTMLElement>) => {
       const note = notesRef.current.find((candidate) => candidate.id === noteId)
@@ -229,5 +250,11 @@ export function useDragController({
     [begin],
   )
 
-  return { view: toDragView(gesture), onCanvasPointerDown, onMoveStart, onResizeStart }
+  return {
+    view: toDragView(gesture),
+    onCanvasPointerDown,
+    onCanvasDoubleClick,
+    onMoveStart,
+    onResizeStart,
+  }
 }

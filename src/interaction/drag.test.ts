@@ -4,6 +4,7 @@ import { createNoteId } from '../domain/board.ts'
 import { dragConfig, noteConfig } from '../domain/config.ts'
 import {
   cancel,
+  createAtPoint,
   type DragContext,
   type DragState,
   finish,
@@ -123,11 +124,11 @@ describe('isDragging', () => {
 
 describe('create', () => {
   it('draws the rect between origin and current in any direction', () => {
-    const state = dragTo(startCreating(p(400, 400)), p(250, 300))
+    const state = dragTo(startCreating(p(400, 400)), p(250, 250))
     expect(finish(state, ctx())).toEqual({
       type: 'noteCreated',
       id: newId,
-      rect: { x: 250, y: 300, width: 150, height: 100 },
+      rect: { x: 250, y: 250, width: 150, height: 150 },
     })
   })
 
@@ -150,24 +151,9 @@ describe('create', () => {
     expect(finish(state, ctx())).toMatchObject({ rect: { x: 0, y: 0 } })
   })
 
-  it('a click makes a default-size note at the origin', () => {
+  it('a plain click creates nothing', () => {
     const state = dragTo(startCreating(p(300, 200)), p(300 + t - 1, 200))
-    expect(finish(state, ctx())).toEqual({
-      type: 'noteCreated',
-      id: newId,
-      rect: { x: 300, y: 200, width: noteConfig.defaultWidth, height: noteConfig.defaultHeight },
-    })
-  })
-
-  it('a click near the edge is clamped', () => {
-    expect(finish(startCreating(p(990, 790)), ctx())).toMatchObject({
-      rect: {
-        x: 1000 - noteConfig.defaultWidth,
-        y: 800 - noteConfig.defaultHeight,
-        width: noteConfig.defaultWidth,
-        height: noteConfig.defaultHeight,
-      },
-    })
+    expect(finish(state, ctx())).toBeNull()
   })
 
   it('a board smaller than the note pins it to the top-left', () => {
@@ -177,7 +163,7 @@ describe('create', () => {
   })
 
   it('does not set a color (the reducer picks the default)', () => {
-    expect(finish(startCreating(p(1, 1)), ctx())).not.toHaveProperty('color')
+    expect(finish(dragTo(startCreating(p(1, 1)), p(300, 300)), ctx())).not.toHaveProperty('color')
   })
 
   it('ignores overTrash', () => {
@@ -189,8 +175,29 @@ describe('create', () => {
     const newNoteId = vi.fn(() => newId)
     finish(dragTo(startCreating(p(0, 0)), p(300, 300)), ctx({ newNoteId }))
     expect(newNoteId).toHaveBeenCalledTimes(1)
-    finish(startCreating(p(0, 0)), ctx({ newNoteId }))
-    expect(newNoteId).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('createAtPoint (double-click)', () => {
+  const context = { board, newNoteId: () => newId }
+
+  it('makes a default-size note with its top-left corner at the point', () => {
+    expect(createAtPoint(p(300, 200), context)).toEqual({
+      type: 'noteCreated',
+      id: newId,
+      rect: { x: 300, y: 200, width: noteConfig.defaultWidth, height: noteConfig.defaultHeight },
+    })
+  })
+
+  it('clamps near the edge', () => {
+    expect(createAtPoint(p(990, 790), context)).toMatchObject({
+      rect: {
+        x: 1000 - noteConfig.defaultWidth,
+        y: 800 - noteConfig.defaultHeight,
+        width: noteConfig.defaultWidth,
+        height: noteConfig.defaultHeight,
+      },
+    })
   })
 })
 
