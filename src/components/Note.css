@@ -9,12 +9,12 @@
   /* Visible, so the options menu can open over the note; the text area clips its own text. */
   overflow: visible;
   box-shadow: 0 3px 8px color-mix(in oklch, var(--color-text) 22%, transparent);
-}
 
-.note[data-over-trash="true"] {
-  opacity: 0.6;
-  outline: 2px dashed var(--color-danger);
-  outline-offset: -2px;
+  &[data-over-trash="true"] {
+    opacity: 0.6;
+    outline: 2px dashed var(--color-danger);
+    outline-offset: -2px;
+  }
 }
 
 /* The header is a darker bar: the move area fills it, and the options menu sits on its right. */
@@ -65,22 +65,24 @@ textarea.note__text {
   background: transparent;
   cursor: nwse-resize;
   touch-action: none;
-}
 
-/* The grip is a corner triangle in the border color, so it stays visible on every note color. */
-.note__resize::after {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 12px;
-  height: 12px;
-  background: linear-gradient(135deg, transparent 50%, var(--color-border-strong) 50%);
+  /* The grip is a corner triangle in the border color, so it stays visible on every note color. */
+  &::after {
+    content: "";
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 12px;
+    height: 12px;
+    background: linear-gradient(135deg, transparent 50%, var(--color-border-strong) 50%);
+  }
 }
 
 /* Focus rings sit inside the note so overflow: hidden cannot clip them. */
-.note__move:focus-visible,
-.note__resize:focus-visible,
-.note__text:focus-visible {
-  outline-offset: -3px;
+.note__move,
+.note__resize,
+.note__text {
+  &:focus-visible {
+    outline-offset: -3px;
+  }
 }

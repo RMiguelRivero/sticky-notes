@@ -1,22 +1,23 @@
-/* A faint dot grid gives the board a surface to draw on; it is decorative, so it has no contrast rule. */
 .board {
   flex: 1;
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: 2px;
+}
+
+/* A faint dot grid gives the board a surface to draw on; it is decorative, so it has no contrast rule. */
+.board__canvas {
+  position: relative;
+  cursor: crosshair;
+  touch-action: none;
   background-color: var(--color-surface);
   background-image: radial-gradient(
     color-mix(in oklch, var(--color-border) 55%, transparent) 1px,
     transparent 1.5px
   );
-  background-size: 24px 24px;
-}
-
-.board__canvas {
-  position: relative;
-  cursor: crosshair;
-  touch-action: none;
+  background-size: 20px 20px;
+  background-position: -10px -10px;
 }
 
 .board__draft {
@@ -26,18 +27,20 @@
   pointer-events: none;
 }
 
-:root[data-dragging] {
-  user-select: none;
-}
+:root {
+  &[data-dragging] {
+    user-select: none;
+  }
 
-:root[data-dragging="move"] * {
-  cursor: grabbing;
-}
+  &[data-dragging="move"] * {
+    cursor: grabbing;
+  }
 
-:root[data-dragging="resize"] * {
-  cursor: nwse-resize;
-}
+  &[data-dragging="resize"] * {
+    cursor: nwse-resize;
+  }
 
-:root[data-dragging="create"] * {
-  cursor: crosshair;
+  &[data-dragging="create"] * {
+    cursor: crosshair;
+  }
 }

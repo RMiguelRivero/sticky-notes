@@ -10,11 +10,11 @@
   border-radius: 2px;
   background: var(--color-surface);
   color: var(--color-text);
-}
 
-.trash[data-over="true"] {
-  border: 2px dashed var(--color-danger);
-  background: oklch(from var(--color-danger) 0.95 0.04 h);
-  color: var(--color-danger-active);
-  font-weight: 600;
+  &[data-over="true"] {
+    border: 2px dashed var(--color-danger);
+    background: oklch(from var(--color-danger) 0.95 0.04 h);
+    color: var(--color-danger-active);
+    font-weight: 600;
+  }
 }
