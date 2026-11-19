@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Board } from '../domain/board.ts'
-import { persistenceConfig } from '../domain/config.ts'
-import type { SaveResult } from './BoardRepository.ts'
+import type { Board } from '../../domain/board.ts'
+import { persistenceConfig } from '../../domain/config.ts'
+import type { SaveResult } from '../shared.ts'
 import { createSaveScheduler, type SaveStatus } from './saveScheduler.ts'
 
 const debounceMs = persistenceConfig.debounceMs

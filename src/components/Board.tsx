@@ -9,6 +9,7 @@ import { TrashZone } from './TrashZone.tsx'
 type Props = {
   readonly notes: readonly NoteModel[]
   readonly dispatch: Dispatch<BoardAction>
+  readonly snapToGrid: boolean
 }
 
 // The board is at least as big as the visible area, and grows to hold the furthest note.
@@ -22,7 +23,7 @@ function logicalBoardSize(viewport: Size, notes: readonly NoteModel[]): Size {
   )
 }
 
-function BoardComponent({ notes, dispatch }: Props) {
+function BoardComponent({ notes, dispatch, snapToGrid }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const trashRef = useRef<HTMLElement>(null)
@@ -49,6 +50,7 @@ function BoardComponent({ notes, dispatch }: Props) {
       dispatch,
       canvasRef,
       trashRef,
+      snapToGrid,
     })
 
   // The page root carries the drag kind so selection and cursor rules cover the whole page.

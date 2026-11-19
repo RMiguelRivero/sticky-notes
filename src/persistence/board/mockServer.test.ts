@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createNoteId, type Note } from '../domain/board.ts'
-import { boardConfig, noteConfig, persistenceConfig } from '../domain/config.ts'
-import type { KeyValueStorage } from './BoardRepository.ts'
+import { createNoteId, type Note } from '../../domain/board.ts'
+import { boardConfig, noteConfig, persistenceConfig } from '../../domain/config.ts'
+import type { KeyValueStorage } from '../shared.ts'
 import { createMockServer, type MockServer } from './mockServer.ts'
 
 function createMemoryStorage(): KeyValueStorage & { readonly data: Map<string, string> } {

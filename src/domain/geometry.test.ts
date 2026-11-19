@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import { noteConfig } from './config.ts'
-import { clampRectToBoard, enforceMinSize, pointInRect, rectFromPoints } from './geometry.ts'
+import {
+  clampRectToBoard,
+  enforceMinSize,
+  pointInRect,
+  rectFromPoints,
+  snapToStep,
+} from './geometry.ts'
+
+describe('snapToStep', () => {
+  it('rounds to the nearest multiple of the step', () => {
+    expect(snapToStep(123, 10)).toBe(120)
+    expect(snapToStep(137, 10)).toBe(140)
+    expect(snapToStep(123, 30)).toBe(120)
+    expect(snapToStep(137, 30)).toBe(150)
+  })
+
+  it('leaves values already on the grid alone', () => {
+    expect(snapToStep(0, 10)).toBe(0)
+    expect(snapToStep(90, 30)).toBe(90)
+  })
+
+  it('rounds halves up, and works for negative values', () => {
+    expect(snapToStep(5, 10)).toBe(10)
+    expect(snapToStep(-14, 10)).toBe(-10)
+    expect(snapToStep(-16, 10)).toBe(-20)
+  })
+})
 
 describe('rectFromPoints', () => {
   it('normalizes any corner order', () => {

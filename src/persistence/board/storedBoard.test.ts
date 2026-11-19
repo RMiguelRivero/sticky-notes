@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { type Board, createNoteId } from '../domain/board.ts'
-import { noteConfig, persistenceConfig } from '../domain/config.ts'
+import { type Board, createNoteId } from '../../domain/board.ts'
+import { noteConfig, persistenceConfig } from '../../domain/config.ts'
 import { parseStoredBoardJson, storedBoardSchema, toStoredBoard } from './storedBoard.ts'
 
 const board: Board = {

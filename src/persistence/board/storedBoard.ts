@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import type { Board } from '../domain/board.ts'
-import { boardSchema } from '../domain/boardSchema.ts'
-import { persistenceConfig } from '../domain/config.ts'
+import type { Board } from '../../domain/board.ts'
+import { boardSchema } from '../../domain/boardSchema.ts'
+import { persistenceConfig } from '../../domain/config.ts'
 
 export type StoredBoard = {
   readonly version: typeof persistenceConfig.schemaVersion

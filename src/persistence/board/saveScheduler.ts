@@ -1,7 +1,7 @@
-import type { Board } from '../domain/board.ts'
-import { assertNever } from '../utils/assertNever.ts'
-import type { XOR } from '../utils/types/xor.ts'
-import { describeError, type SaveResult } from './BoardRepository.ts'
+import type { Board } from '../../domain/board.ts'
+import { assertNever } from '../../utils/assertNever.ts'
+import type { XOR } from '../../utils/types/xor.ts'
+import { describeError, type SaveResult } from '../shared.ts'
 
 export type IdleSave = { readonly kind: 'idle' }
 export type PendingSave = { readonly kind: 'pending' }

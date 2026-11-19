@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Note, NoteId, Point, Rect, Size } from '../domain/board.ts'
 import { createNoteId } from '../domain/board.ts'
-import { dragConfig, noteConfig } from '../domain/config.ts'
+import { dragConfig, noteConfig, snapConfig } from '../domain/config.ts'
 import {
   cancel,
   createAtPoint,
@@ -11,6 +11,7 @@ import {
   idleDrag,
   isDragging,
   previewRect,
+  snapStepFor,
   startCreating,
   startMoving,
   startResizing,
@@ -34,8 +35,13 @@ function p(x: number, y: number): Point {
   return { x, y }
 }
 
-function dragTo(state: DragState, point: Point, overTrash = false): DragState {
-  return update(state, point, { overTrash })
+function dragTo(
+  state: DragState,
+  point: Point,
+  overTrash = false,
+  snapStep: number | null = null,
+): DragState {
+  return update(state, point, { overTrash, snapStep })
 }
 
 describe('start transitions', () => {
@@ -51,6 +57,7 @@ describe('start transitions', () => {
       origin: p(110, 105),
       current: p(110, 105),
       overTrash: false,
+      snapStep: null,
     })
   })
 
@@ -61,13 +68,14 @@ describe('start transitions', () => {
       startRect: note.rect,
       origin: p(300, 250),
       current: p(300, 250),
+      snapStep: null,
     })
   })
 })
 
 describe('update', () => {
   it('returns the same state when idle', () => {
-    expect(update(idleDrag, p(1, 1), { overTrash: true })).toBe(idleDrag)
+    expect(update(idleDrag, p(1, 1), { overTrash: true, snapStep: 10 })).toBe(idleDrag)
   })
 
   it('sets current when creating and resizing', () => {
@@ -81,6 +89,12 @@ describe('update', () => {
       overTrash: true,
     })
     expect(dragTo(startCreating(p(0, 0)), p(9, 9), true)).not.toHaveProperty('overTrash')
+  })
+
+  it('stores the snap step when moving and resizing, not when creating', () => {
+    expect(dragTo(startMoving(note, p(0, 0)), p(9, 9), false, 10)).toMatchObject({ snapStep: 10 })
+    expect(dragTo(startResizing(note, p(0, 0)), p(9, 9), false, 30)).toMatchObject({ snapStep: 30 })
+    expect(dragTo(startCreating(p(0, 0)), p(9, 9), false, 10)).not.toHaveProperty('snapStep')
   })
 
   it('does not mutate the previous state', () => {
@@ -290,6 +304,83 @@ describe('resize', () => {
   })
 })
 
+describe('snapStepFor', () => {
+  it('is null when snapping is off, whatever Shift does', () => {
+    expect(snapStepFor(false, false)).toBeNull()
+    expect(snapStepFor(false, true)).toBeNull()
+  })
+
+  it('uses the fine step, and the coarse one with Shift', () => {
+    expect(snapStepFor(true, false)).toBe(snapConfig.step)
+    expect(snapStepFor(true, true)).toBe(snapConfig.shiftStep)
+  })
+})
+
+describe('snapped move', () => {
+  it('puts the top-left corner on the grid and keeps the size', () => {
+    const state = dragTo(startMoving(note, p(0, 0)), p(23, 37), false, 10)
+    expect(finish(state, ctx())).toEqual({
+      type: 'noteMoved',
+      id: noteId,
+      rect: { x: 120, y: 140, width: 200, height: 150 },
+    })
+  })
+
+  it('uses the coarser step', () => {
+    const state = dragTo(startMoving(note, p(0, 0)), p(23, 37), false, 30)
+    expect(finish(state, ctx())).toMatchObject({ rect: { x: 120, y: 150 } })
+  })
+
+  it('still clamps to the board edges after snapping', () => {
+    const state = dragTo(startMoving(note, p(0, 0)), p(2000, -500), false, 30)
+    expect(finish(state, ctx())).toMatchObject({ rect: { x: 800, y: 0 } })
+  })
+
+  it('does not snap when the step is null', () => {
+    const state = dragTo(startMoving(note, p(0, 0)), p(23, 37), false, null)
+    expect(finish(state, ctx())).toMatchObject({ rect: { x: 123, y: 137 } })
+  })
+})
+
+describe('snapped resize', () => {
+  it('puts the bottom-right corner on the grid', () => {
+    const state = dragTo(startResizing(note, p(0, 0)), p(23, 37), false, 10)
+    expect(finish(state, ctx())).toEqual({
+      type: 'noteResized',
+      id: noteId,
+      rect: { x: 100, y: 100, width: 220, height: 190 },
+    })
+  })
+
+  it('uses the coarser step', () => {
+    const state = dragTo(startResizing(note, p(0, 0)), p(23, 37), false, 30)
+    expect(finish(state, ctx())).toMatchObject({ rect: { width: 230, height: 200 } })
+  })
+
+  it('snaps the corner, not the size, for a note that is off the grid', () => {
+    const offGrid: Pick<Note, 'id' | 'rect'> = {
+      id: noteId,
+      rect: { x: 105, y: 100, width: 200, height: 150 },
+    }
+    const state = dragTo(startResizing(offGrid, p(0, 0)), p(8, 0), false, 10)
+    expect(finish(state, ctx())).toMatchObject({ rect: { x: 105, width: 205 } })
+  })
+
+  it('still enforces the minimum size and the board edge', () => {
+    const small = dragTo(startResizing(note, p(300, 250)), p(0, 0), false, 30)
+    expect(finish(small, ctx())).toMatchObject({
+      rect: { width: noteConfig.minWidth, height: noteConfig.minHeight },
+    })
+    const large = dragTo(startResizing(note, p(0, 0)), p(5000, 5000), false, 30)
+    expect(finish(large, ctx())).toMatchObject({ rect: { width: 900, height: 700 } })
+  })
+
+  it('does not snap when the step is null', () => {
+    const state = dragTo(startResizing(note, p(0, 0)), p(23, 37), false, null)
+    expect(finish(state, ctx())).toMatchObject({ rect: { width: 223, height: 187 } })
+  })
+})
+
 describe('finish', () => {
   it('returns null when idle', () => {
     expect(finish(idleDrag, ctx())).toBeNull()
@@ -326,6 +417,10 @@ describe('previewRect', () => {
     ['resize', dragTo(startResizing(note, p(0, 0)), p(60, 40))],
     ['resize, tiny', dragTo(startResizing(note, p(0, 0)), p(-400, -400))],
     ['resize, past edge', dragTo(startResizing(note, p(0, 0)), p(4000, 4000))],
+    ['move, snapped to 10', dragTo(startMoving(note, p(0, 0)), p(23, 37), false, 10)],
+    ['move, snapped to 30', dragTo(startMoving(note, p(0, 0)), p(23, 37), false, 30)],
+    ['resize, snapped to 10', dragTo(startResizing(note, p(0, 0)), p(23, 37), false, 10)],
+    ['resize, snapped to 30, tiny', dragTo(startResizing(note, p(0, 0)), p(-400, -400), false, 30)],
   ]
 
   it.each(cases)('equals the rect finish commits: %s', (_name, state) => {

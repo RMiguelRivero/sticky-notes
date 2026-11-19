@@ -92,11 +92,18 @@ Also:
   | Move note | Arrow keys | Move the note 10 px in that direction (stays inside the board) |
   | Resize note | Right / Down | Grow width / height by 10 px (stops at the board edge) |
   | Resize note | Left / Up | Shrink width / height by 10 px (stops at 120×120) |
-  | Either | Shift + Arrow | Same, with 50 px steps |
+  | Either | Shift + Arrow | Same, with 40 px steps |
 
   Holding a key repeats. A press that would change nothing (at an edge or the minimum) does
   nothing. Alt, Ctrl and Cmd with an arrow are left to the browser. Creating and deleting have no
   keyboard or button alternative yet (see MVP+1).
+- **Snap to grid.** The "Snap" switch in the header makes pointer moves and resizes
+  land on a grid measured from the board's top-left corner: 10 px steps, or 30 px while Shift is
+  held. Moving snaps the note's top-left corner and resizing snaps its bottom-right corner, so a
+  note that starts off the grid lands on it the first time it is dragged. The dashed preview shows
+  the snapped result, and it still stops at the board edge and the minimum size. With the switch
+  off, dragging is free and Shift does nothing. Drawing a new note and the keyboard are not
+  snapped. The choice is remembered across reloads (see Architecture).
 - **Cancel a drag.** Press `Escape` during any drag to put everything back as it was.
 - **Big boards scroll.** The board fills the window and grows (with scrollbars) to hold notes that
   sit beyond the visible area, so every note stays reachable at any window size or zoom level.
@@ -146,7 +153,12 @@ diff from the board the server last acknowledged, so after a partial failure the
 exactly what failed. A plain-TypeScript save scheduler debounces, keeps only the latest board and
 runs one save at a time, so responses cannot arrive out of order; `useBoardPersistence` is a thin
 hook over it that loads once and flushes on `pagehide`. Storage is injected (`KeyValueStorage`), so
-tests use in-memory fakes.
+tests use in-memory fakes. User preferences (today only the snap switch) are kept apart from the
+board content behind a second async `SettingsRepository` (`load()` / `save(settings)`): a
+versioned `{ version, settings }` envelope under `sticky-notes:settings` in localStorage, validated
+with Zod. `load()` falls back to the defaults for missing, unreadable or invalid data, and
+`useSettings` saves from the change handler, so the initial defaults can never overwrite stored
+settings. Only the localStorage version exists; the mock API does not handle settings.
 
 Performance: during a drag only the dragged note re-renders. `Note` is `React.memo`, and idle notes
 get identical props every frame: the same `note` object from the reducer, `previewRect={undefined}`,
@@ -214,13 +226,16 @@ src/
   main.tsx      App entry point
   App.tsx       Page layout: header, main, the board reducer and persistence wiring
   components/   Board (scroll container, notes, draft outline, trash), Note, TrashZone,
-                BoardTitle (editable h1), NoteMenu (the ⋯ options menu), ColorPicker (radio dots shown in the menu), StatusBar (live region), CSS
+                BoardTitle (editable h1), NoteMenu (the ⋯ options menu), ColorPicker (radio dots shown in the menu), SnapToggle (header switch), StatusBar (live region), CSS
   domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
   interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM),
                 keyboard.ts (pure: arrow key + Shift -> the note's new rect or null, clamped),
                 and useNoteInteractions, the hook that wires pointer and key events to them
-  persistence/  Async BoardRepository, localStorage and mock-API implementations, mock server,
+  persistence/  One folder per kind of data, plus shared.ts (the save result, KeyValueStorage and
+                describeError both use)
+    board/      Async BoardRepository, localStorage and mock-API implementations, mock server,
                 save scheduler, and the React hook that loads and autosaves the board
+    settings/   SettingsRepository (localStorage only), the stored format, and the useSettings hook
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
                 contrast math (contrast.ts) and its test
   utils/        assertNever and an XOR type helper for exclusive unions
@@ -237,6 +252,12 @@ scripts/
   (404), which has no effect on the app.
 - About 6 hours in total, including planning. I stopped at the 6-hour limit the assignment sets;
   the MVP+1 section lists what I deferred.
+- **Snap to grid assumptions.** It applies to pointer moves and resizes only; drawing a new note and
+  the arrow keys (10 px, Shift 40 px) are not snapped. Shift is read on every pointer move and at
+  release, so pressing or letting go of Shift between moves changes the step on the next move.
+  The setting lives in its own localStorage key (`sticky-notes:settings`), not in the board
+  document, and has no mock-API version. Unreadable settings fall back to the defaults without a
+  backup copy, because losing a switch position is harmless.
 - **TypeScript in strict mode**, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
   and `noImplicitReturns`. No `any`, no `as` casts, no non-null `!`.
 - **Biome** is the only formatter and linter. Besides its recommended rules, `any`, non-null

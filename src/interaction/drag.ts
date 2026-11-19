@@ -1,7 +1,7 @@
 import type { Note, NoteId, Point, Rect, Size } from '../domain/board.ts'
 import type { BoardAction } from '../domain/boardReducer.ts'
-import { dragConfig, noteConfig } from '../domain/config.ts'
-import { clampRectToBoard, enforceMinSize, rectFromPoints } from '../domain/geometry.ts'
+import { dragConfig, noteConfig, snapConfig } from '../domain/config.ts'
+import { clampRectToBoard, enforceMinSize, rectFromPoints, snapToStep } from '../domain/geometry.ts'
 import { assertNever } from '../utils/assertNever.ts'
 import type { XOR } from '../utils/types/xor.ts'
 
@@ -20,6 +20,9 @@ export type MovingDrag = {
   readonly origin: Point
   readonly current: Point
   readonly overTrash: boolean
+  // Grid step in px, or null for free movement. Kept in the state so the preview and the
+  // committed rect always come from the same value.
+  readonly snapStep: number | null
 }
 export type ResizingDrag = {
   readonly kind: 'resizing'
@@ -27,6 +30,7 @@ export type ResizingDrag = {
   readonly startRect: Rect
   readonly origin: Point
   readonly current: Point
+  readonly snapStep: number | null
 }
 
 export type DragState = XOR<IdleDrag, CreatingDrag, MovingDrag, ResizingDrag>
@@ -35,6 +39,17 @@ export type DragContext = {
   readonly board: Size
   readonly overTrash: boolean
   readonly newNoteId: () => NoteId
+}
+
+export type UpdateContext = {
+  readonly overTrash: boolean
+  readonly snapStep: number | null
+}
+
+/** The grid step for the current pointer: none when snapping is off, a coarser one with Shift. */
+export function snapStepFor(enabled: boolean, shift: boolean): number | null {
+  if (!enabled) return null
+  return shift ? snapConfig.shiftStep : snapConfig.step
 }
 
 export const idleDrag: DragState = { kind: 'idle' }
@@ -51,26 +66,36 @@ export function startMoving(note: Pick<Note, 'id' | 'rect'>, point: Point): Drag
     origin: point,
     current: point,
     overTrash: false,
+    snapStep: null,
   }
 }
 
 export function startResizing(note: Pick<Note, 'id' | 'rect'>, point: Point): DragState {
-  return { kind: 'resizing', noteId: note.id, startRect: note.rect, origin: point, current: point }
+  return {
+    kind: 'resizing',
+    noteId: note.id,
+    startRect: note.rect,
+    origin: point,
+    current: point,
+    snapStep: null,
+  }
 }
 
-export function update(
-  state: DragState,
-  point: Point,
-  context: Pick<DragContext, 'overTrash'>,
-): DragState {
+export function update(state: DragState, point: Point, context: UpdateContext): DragState {
   switch (state.kind) {
     case 'idle':
       return state
     case 'creating':
-    case 'resizing':
       return { ...state, current: point }
+    case 'resizing':
+      return { ...state, current: point, snapStep: context.snapStep }
     case 'moving':
-      return { ...state, current: point, overTrash: context.overTrash }
+      return {
+        ...state,
+        current: point,
+        overTrash: context.overTrash,
+        snapStep: context.snapStep,
+      }
     default:
       return assertNever(state)
   }
@@ -109,11 +134,20 @@ function clickRect(origin: Point, board: Size): Rect {
   )
 }
 
-function movedRect(startRect: Rect, origin: Point, current: Point, board: Size): Rect {
+// The top-left corner snaps to the grid; the size stays as it is.
+function movedRect(
+  startRect: Rect,
+  origin: Point,
+  current: Point,
+  snapStep: number | null,
+  board: Size,
+): Rect {
+  const x = startRect.x + current.x - origin.x
+  const y = startRect.y + current.y - origin.y
   return clampRectToBoard(
     {
-      x: startRect.x + current.x - origin.x,
-      y: startRect.y + current.y - origin.y,
+      x: snapStep === null ? x : snapToStep(x, snapStep),
+      y: snapStep === null ? y : snapToStep(y, snapStep),
       width: startRect.width,
       height: startRect.height,
     },
@@ -121,11 +155,30 @@ function movedRect(startRect: Rect, origin: Point, current: Point, board: Size):
   )
 }
 
-function resizedRect(startRect: Rect, origin: Point, current: Point, board: Size): Rect {
-  const wanted = enforceMinSize({
-    width: startRect.width + current.x - origin.x,
-    height: startRect.height + current.y - origin.y,
-  })
+// The bottom-right corner snaps to the grid, so the size follows from it.
+function resizedSize(
+  startRect: Rect,
+  origin: Point,
+  current: Point,
+  snapStep: number | null,
+): Size {
+  const width = startRect.width + current.x - origin.x
+  const height = startRect.height + current.y - origin.y
+  if (snapStep === null) return { width, height }
+  return {
+    width: snapToStep(startRect.x + width, snapStep) - startRect.x,
+    height: snapToStep(startRect.y + height, snapStep) - startRect.y,
+  }
+}
+
+function resizedRect(
+  startRect: Rect,
+  origin: Point,
+  current: Point,
+  snapStep: number | null,
+  board: Size,
+): Rect {
+  const wanted = enforceMinSize(resizedSize(startRect, origin, current, snapStep))
   // Limit to the board edge first, then restore the minimum: min size wins over the edge.
   const limited = {
     width: Math.min(wanted.width, board.width - startRect.x),
@@ -143,11 +196,11 @@ export function previewRect(state: DragState, board: Size): Rect | null {
       return isDragging(state) ? createdRect(state.origin, state.current, board) : null
     case 'moving':
       return isDragging(state)
-        ? movedRect(state.startRect, state.origin, state.current, board)
+        ? movedRect(state.startRect, state.origin, state.current, state.snapStep, board)
         : null
     case 'resizing':
       return isDragging(state)
-        ? resizedRect(state.startRect, state.origin, state.current, board)
+        ? resizedRect(state.startRect, state.origin, state.current, state.snapStep, board)
         : null
     default:
       return assertNever(state)

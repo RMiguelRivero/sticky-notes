@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Board } from '../domain/board.ts'
-import { persistenceConfig } from '../domain/config.ts'
-import type { KeyValueStorage } from './BoardRepository.ts'
+import type { Board } from '../../domain/board.ts'
+import { persistenceConfig } from '../../domain/config.ts'
+import type { KeyValueStorage } from '../shared.ts'
 import { parseRepositoryChoice, selectRepository } from './selectRepository.ts'
 
 function createMemoryStorage(): KeyValueStorage & { readonly data: Map<string, string> } {

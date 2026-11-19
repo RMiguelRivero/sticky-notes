@@ -1,5 +1,6 @@
-import { persistenceConfig } from '../domain/config.ts'
-import type { BoardRepository, KeyValueStorage } from './BoardRepository.ts'
+import { persistenceConfig } from '../../domain/config.ts'
+import type { KeyValueStorage } from '../shared.ts'
+import type { BoardRepository } from './BoardRepository.ts'
 import { createLocalStorageRepository } from './localStorageRepository.ts'
 import { createMockApiRepository } from './mockApiRepository.ts'
 import { createMockServer, sleep } from './mockServer.ts'

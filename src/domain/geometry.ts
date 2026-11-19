@@ -10,6 +10,10 @@ export function rectFromPoints(a: Point, b: Point): Rect {
   }
 }
 
+export function snapToStep(value: number, step: number): number {
+  return Math.round(value / step) * step
+}
+
 export function enforceMinSize(size: Size): Size {
   return {
     width: Math.max(size.width, noteConfig.minWidth),

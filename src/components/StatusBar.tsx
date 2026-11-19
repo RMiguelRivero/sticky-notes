@@ -1,5 +1,5 @@
-import type { SaveStatus } from '../persistence/saveScheduler.ts'
-import type { PersistenceStatus } from '../persistence/useBoardPersistence.ts'
+import type { SaveStatus } from '../persistence/board/saveScheduler.ts'
+import type { PersistenceStatus } from '../persistence/board/useBoardPersistence.ts'
 import { assertNever } from '../utils/assertNever.ts'
 import './StatusBar.css'
 

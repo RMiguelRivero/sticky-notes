@@ -1,12 +1,7 @@
-import type { Board } from '../domain/board.ts'
-import { persistenceConfig } from '../domain/config.ts'
-import {
-  type BoardRepository,
-  describeError,
-  type KeyValueStorage,
-  type LoadResult,
-  type SaveResult,
-} from './BoardRepository.ts'
+import type { Board } from '../../domain/board.ts'
+import { persistenceConfig } from '../../domain/config.ts'
+import { describeError, type KeyValueStorage, type SaveResult } from '../shared.ts'
+import type { BoardRepository, LoadResult } from './BoardRepository.ts'
 import { parseStoredBoardJson, toStoredBoard } from './storedBoard.ts'
 
 // Keeps the first bad copy: a later bad load must not overwrite it.

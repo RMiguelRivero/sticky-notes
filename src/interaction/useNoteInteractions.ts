@@ -28,6 +28,7 @@ import {
   idleDrag,
   isDragging,
   previewRect,
+  snapStepFor,
   startCreating,
   startMoving,
   startResizing,
@@ -72,9 +73,11 @@ function toDragView({ drag, board }: Gesture): DragView {
 
 // Mutable on purpose: pointer handlers need the latest drag state synchronously,
 // which React state (updated on the next render) cannot give them.
+type LatestPointer = { readonly client: Point; readonly shift: boolean }
+
 type Session = {
   drag: DragState
-  latestClient: Point | null
+  latestPointer: LatestPointer | null
   frame: number | null
   readonly stop: (next: DragState) => void
 }
@@ -86,6 +89,7 @@ type Options = {
   readonly dispatch: Dispatch<BoardAction>
   readonly canvasRef: RefObject<HTMLElement | null>
   readonly trashRef: RefObject<HTMLElement | null>
+  readonly snapToGrid: boolean
 }
 
 const ARROW_DIRECTIONS: Readonly<Partial<Record<string, Direction>>> = {
@@ -113,15 +117,22 @@ export function useNoteInteractions({
   dispatch,
   canvasRef,
   trashRef,
+  snapToGrid,
 }: Options): NoteInteractions {
   const [gesture, setGesture] = useState<Gesture>(idleGesture)
   const sessionRef = useRef<Session | null>(null)
   // Lets the start handlers stay stable while still finding the note's current rect.
   const notesRef = useRef(notes)
+  // Same for the snap setting, so toggling it mid-drag takes effect on the next pointer move.
+  const snapRef = useRef(snapToGrid)
 
   useEffect(() => {
     notesRef.current = notes
   }, [notes])
+
+  useEffect(() => {
+    snapRef.current = snapToGrid
+  }, [snapToGrid])
 
   useEffect(() => () => sessionRef.current?.stop(cancel()), [])
 
@@ -151,9 +162,10 @@ export function useNoteInteractions({
       const listeners = new AbortController()
       const { signal } = listeners
 
-      function apply(client: Point) {
+      function apply({ client, shift }: LatestPointer) {
         session.drag = update(session.drag, toBoardPoint(client), {
           overTrash: isOverTrash(client),
+          snapStep: snapStepFor(snapRef.current, shift),
         })
         setGesture({ drag: session.drag, board })
       }
@@ -169,12 +181,12 @@ export function useNoteInteractions({
       // One state update per animation frame, however many pointermoves arrive.
       function onFrame() {
         session.frame = null
-        if (session.latestClient !== null) apply(session.latestClient)
+        if (session.latestPointer !== null) apply(session.latestPointer)
       }
 
       function onPointerMove(event: PointerEvent) {
         if (event.pointerId !== pointerId) return
-        session.latestClient = clientPoint(event)
+        session.latestPointer = { client: clientPoint(event), shift: event.shiftKey }
         session.frame ??= requestAnimationFrame(onFrame)
       }
 
@@ -182,7 +194,7 @@ export function useNoteInteractions({
         if (event.pointerId !== pointerId) return
         // Use the release position, not the last frame's, so the commit matches the pointer.
         const client = clientPoint(event)
-        apply(client)
+        apply({ client, shift: event.shiftKey })
         const action = finish(session.drag, {
           board,
           overTrash: isOverTrash(client),
@@ -203,7 +215,7 @@ export function useNoteInteractions({
 
       const session: Session = {
         drag: startDrag(toBoardPoint(clientPoint(start))),
-        latestClient: null,
+        latestPointer: null,
         frame: null,
         stop,
       }

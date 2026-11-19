@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type Board, createEmptyBoard } from '../domain/board.ts'
-import { persistenceConfig } from '../domain/config.ts'
-import { assertNever } from '../utils/assertNever.ts'
-import type { XOR } from '../utils/types/xor.ts'
+import { type Board, createEmptyBoard } from '../../domain/board.ts'
+import { persistenceConfig } from '../../domain/config.ts'
+import { assertNever } from '../../utils/assertNever.ts'
+import type { XOR } from '../../utils/types/xor.ts'
 import type { BoardRepository, LoadResult } from './BoardRepository.ts'
 import { createSaveScheduler, type SaveScheduler, type SaveStatus } from './saveScheduler.ts'
 

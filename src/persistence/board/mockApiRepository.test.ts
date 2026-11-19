@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { type Board, createNoteId, type Note } from '../domain/board.ts'
-import { noteConfig, persistenceConfig } from '../domain/config.ts'
-import type { KeyValueStorage } from './BoardRepository.ts'
+import { type Board, createNoteId, type Note } from '../../domain/board.ts'
+import { noteConfig, persistenceConfig } from '../../domain/config.ts'
+import type { KeyValueStorage } from '../shared.ts'
 import { createMockApiRepository } from './mockApiRepository.ts'
 import {
   createMockServer,

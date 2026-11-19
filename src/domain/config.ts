@@ -16,6 +16,11 @@ export const dragConfig = {
   threshold: 4,
 } as const
 
+export const snapConfig = {
+  step: 10,
+  shiftStep: 30,
+} as const
+
 export const keyboardConfig = {
   step: 10,
   shiftStep: 40,
@@ -26,6 +31,8 @@ export const persistenceConfig = {
   mockLatencyMs: { min: 300, max: 800 },
   mockFailureRate: 0,
   storageKey: 'sticky-notes:board',
+  settingsStorageKey: 'sticky-notes:settings',
+  settingsSchemaVersion: 1,
   mockServerKey: 'sticky-notes:mock-server',
   backupSuffix: ':corrupt-backup',
   schemaVersion: 1,

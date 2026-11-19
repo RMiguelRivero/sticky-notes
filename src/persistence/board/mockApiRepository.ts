@@ -1,10 +1,6 @@
-import { type Board, createEmptyBoard, type Note } from '../domain/board.ts'
-import {
-  type BoardRepository,
-  describeError,
-  type LoadResult,
-  type SaveResult,
-} from './BoardRepository.ts'
+import { type Board, createEmptyBoard, type Note } from '../../domain/board.ts'
+import { describeError, type SaveResult } from '../shared.ts'
+import type { BoardRepository, LoadResult } from './BoardRepository.ts'
 import type { MockResponse, MockServer } from './mockServer.ts'
 import { storedBoardSchema } from './storedBoard.ts'
 

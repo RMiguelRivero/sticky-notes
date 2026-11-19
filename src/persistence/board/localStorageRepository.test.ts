@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { type Board, createNoteId } from '../domain/board.ts'
-import { noteConfig, persistenceConfig } from '../domain/config.ts'
-import type { KeyValueStorage } from './BoardRepository.ts'
+import { type Board, createNoteId } from '../../domain/board.ts'
+import { noteConfig, persistenceConfig } from '../../domain/config.ts'
+import type { KeyValueStorage } from '../shared.ts'
 import { createLocalStorageRepository } from './localStorageRepository.ts'
 import { toStoredBoard } from './storedBoard.ts'
 
