@@ -83,15 +83,6 @@ function setRect(state: Board, id: NoteId, rect: Rect): Board {
   )
 }
 
-function compactZ(board: Board): Board {
-  const ranked = [...board.notes].sort((a, b) => a.z - b.z)
-  const rankById = new Map(ranked.map((note, index) => [note.id, index + 1]))
-  return {
-    ...board,
-    notes: board.notes.map((note) => ({ ...note, z: rankById.get(note.id) ?? note.z })),
-  }
-}
-
 export function boardReducer(state: Board, action: BoardAction): Board {
   switch (action.type) {
     case 'noteCreated': {
@@ -131,7 +122,7 @@ export function boardReducer(state: Board, action: BoardAction): Board {
       return title === state.title ? state : { ...state, title }
     }
     case 'boardLoaded':
-      return compactZ(action.board)
+      return action.board
     default:
       return assertNever(action)
   }

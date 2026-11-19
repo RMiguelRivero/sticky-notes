@@ -19,13 +19,13 @@ function App() {
   const { settings, setSnapToGrid } = useSettings(settingsRepository)
   const [board, dispatch] = useReducer(boardReducer, undefined, createEmptyBoard)
   const { status, loadedBoard, flush } = useBoardPersistence(repository, board)
-  const [ready, setReady] = useState(false)
+  const ready = loadedBoard !== null
 
+  // Every loaded board, the first one and each one reloaded after another tab saved.
   useEffect(() => {
-    if (loadedBoard === null || ready) return
+    if (loadedBoard === null) return
     dispatch({ type: 'boardLoaded', board: loadedBoard })
-    setReady(true)
-  }, [loadedBoard, ready])
+  }, [loadedBoard])
 
   return (
     <div className="app">

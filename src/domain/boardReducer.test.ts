@@ -206,15 +206,10 @@ describe('titleChanged', () => {
 })
 
 describe('boardLoaded', () => {
-  it('replaces the state and compacts z to 1..n in the same stacking order', () => {
+  it('returns the loaded board as is, the same object', () => {
     const loaded = { title: 'Loaded', notes: [note(a, 50), note(b, 7), note(c, 20)] }
     const next = boardReducer(boardOf(note(unknown, 1)), { type: 'boardLoaded', board: loaded })
-    expect(next.title).toBe('Loaded')
-    expect(next.notes.map((n) => [n.id, n.z])).toEqual([
-      [a, 3],
-      [b, 1],
-      [c, 2],
-    ])
+    expect(next).toBe(loaded)
   })
 
   it('loads an empty board', () => {

@@ -12,7 +12,7 @@ mock REST API, and `&fail=0.3` to make 30% of its requests fail).
 - Performance: the third paragraph of [Architecture](#architecture)
 - Code quality and static typing: [Architecture](#architecture) and
   [Tooling and assumptions](#tooling-and-assumptions) (strict TypeScript, no `any`, no casts,
-  Zod schemas checked against hand-written types, 231 unit tests)
+  Zod schemas checked against hand-written types, 289 unit tests)
 - Usability: [Features](#features) and [Accessibility and color system](#accessibility-and-color-system)
 - What I left out and why: [MVP+1](#mvp1-whats-next-and-where-i-cut-corners)
 
@@ -107,6 +107,8 @@ Also:
 - **Cancel a drag.** Press `Escape` during any drag to put everything back as it was.
 - **Big boards scroll.** The board fills the window and grows (with scrollbars) to hold notes that
   sit beyond the visible area, so every note stays reachable at any window size or zoom level.
+- **Open tabs stay in sync.** When one tab saves, the other open tabs of the same storage mode
+  reload the board. A tab with unsaved changes waits and reloads right after its own save.
 - **Save status.** The header shows "Loading…", "Saving…", "All changes saved" or the error
   ("Couldn't save: ...", in the danger color and in words).
 
@@ -134,7 +136,7 @@ exhaustive `switch` ending in `assertNever`. Ids come in on actions, so the redu
 `crypto` or the clock and tests need no mocks; unknown ids and no-change actions return the same
 state object. Move and resize carry the final absolute rect, so pointer input today and keyboard
 input later produce the same action. Z-order is a counter (`z`, bring-to-front sets `max + 1`,
-`boardLoaded` compacts it to `1..n`), so array, DOM and Tab order never change.
+loading compacts it to `1..n`), so array, DOM and Tab order never change.
 
 Pointer gestures are a pure state machine in `src/interaction/drag.ts`: `DragState` is a union
 (`idle | creating | moving | resizing`), `update` takes board-relative points and an `overTrash`
@@ -152,13 +154,30 @@ can overwrite it. The mock API version talks to an in-memory REST server (`GET/P
 diff from the board the server last acknowledged, so after a partial failure the next save re-sends
 exactly what failed. A plain-TypeScript save scheduler debounces, keeps only the latest board and
 runs one save at a time, so responses cannot arrive out of order; `useBoardPersistence` is a thin
-hook over it that loads once and flushes on `pagehide`. Storage is injected (`KeyValueStorage`), so
-tests use in-memory fakes. User preferences (today only the snap switch) are kept apart from the
+hook over it that loads on mount (and again on sync pings, below) and flushes on `pagehide`.
+Storage is injected (`KeyValueStorage`), so tests use in-memory fakes. User preferences (today only the snap switch) are kept apart from the
 board content behind a second async `SettingsRepository` (`load()` / `save(settings)`): a
 versioned `{ version, settings }` envelope under `sticky-notes:settings` in localStorage, validated
 with Zod. `load()` falls back to the defaults for missing, unreadable or invalid data, and
 `useSettings` saves from the change handler, so the initial defaults can never overwrite stored
 settings. Only the localStorage version exists; the mock API does not handle settings.
+
+Cross-tab sync is a ping followed by a reload. After every successful save the board hook posts an
+empty message on a `BroadcastChannel` it owns (created and closed with the hook's effect). The
+message carries no data, so there is nothing to validate, and a channel never delivers to its own
+sender. Other tabs then call
+`repository.load()` and dispatch the result as `boardLoaded`, so the sync works the same for
+localStorage and the mock API. The logic is plain TypeScript in `tabSync.ts`: every reload gets a
+number and only the latest one may apply ("latest load wins"), and empty, corrupt or failed reads
+keep the current board. A tab that has not finished its first load, or has unsaved changes
+(debounce running, save in flight, or last save failed), does not reload; it remembers the missed
+ping and reloads after its next successful save. A reload that finishes after the user changed
+something is dropped the same way. Z compaction moved from the reducer to the load path in
+`useBoardPersistence`: `boardLoaded` now stores the loaded object itself, so the hook's reference
+check recognises it and never saves it back. Without that, every reload would cause a save, which
+would ping the other tab, which would reload and save, forever. For the same reason the hook only
+saves a board the caller changed: when a reload arrives, the caller still holds its previous board
+for one render, and that stale board must not be saved over the new one.
 
 Performance: during a drag only the dragged note re-renders. `Note` is `React.memo`, and idle notes
 get identical props every frame: the same `note` object from the reducer, `previewRect={undefined}`,
@@ -216,6 +235,8 @@ flush on blur.
   color" (visually hidden legend) with radios "Yellow", "Pink", "Blue", "Orange". Swatches are
   24×24 full-color discs with darker outlines; the selection is shown by a check mark and a thicker inset ring. Each note is an `article`
   labelled "Note: " plus the first five words of its text (with "…" if longer), or "Empty note".
+- **Remote updates are not announced.** A board reloaded because another tab saved just changes
+  on screen; screen-reader users get no message about it, a known limitation.
 - `src/styles/base.css` sets a 2px `--color-focus` ring with 2px offset on every `:focus-visible`
   element and turns off transitions and animations under `prefers-reduced-motion: reduce`.
 
@@ -228,6 +249,7 @@ src/
   components/   Board (scroll container, notes, draft outline, trash), Note, TrashZone,
                 BoardTitle (editable h1), NoteMenu (the ⋯ options menu), ColorPicker (radio dots shown in the menu), SnapToggle (header switch), StatusBar (live region), CSS
   domain/       Pure TypeScript model: types, Zod schemas, geometry, reducer, config (no React/DOM)
+    compactZ.ts Renumbers z to 1..n in stacking order; applied to every loaded board
   interaction/  Pure drag state machine (create, move, resize) and its tests (no React/DOM),
                 keyboard.ts (pure: arrow key + Shift -> the note's new rect or null, clamped),
                 and useNoteInteractions, the hook that wires pointer and key events to them
@@ -235,6 +257,7 @@ src/
                 describeError both use)
     board/      Async BoardRepository, localStorage and mock-API implementations, mock server,
                 save scheduler, and the React hook that loads and autosaves the board
+      tabSync.ts  Pure reload logic on a ping: defer while unsaved, latest load wins
     settings/   SettingsRepository (localStorage only), the stored format, and the useSettings hook
   styles/       Global CSS: color tokens (tokens.css), element defaults (base.css),
                 contrast math (contrast.ts) and its test
@@ -364,15 +387,13 @@ prepares for it.
 - **Screen reader testing.** I have not tested with VoiceOver or NVDA. The app uses native
   elements, one status live region and descriptive labels, so I expect few issues, but I have not
   checked.
-- **Avoid the one extra save right after load.** `boardLoaded` renumbers `z` and returns a new
-  object, and `useBoardPersistence` skips only the loaded board by reference, so one unchanged
-  board is saved after every load. Fixing it means skipping a board equal in content, or having
-  the hook expose the normalized board; it is a single, cheap write, so I left it.
 - **Retry with back-off and an offline queue.** Autosave only retries on the next change. The
   scheduler has one place that handles a save result, so a retry timer is a small addition there,
   and the mock API repository already keeps unconfirmed work between saves.
-- **Cross-tab sync and conflict handling.** Two tabs overwrite each other (last write wins). The
-  versioned envelope leaves room for a revision number, and the `storage` event could feed
-  `boardLoaded`.
+- **Conflict handling between tabs.** Sync is done: a save in one tab makes the others reload.
+  What remains: in localStorage mode two tabs that save within the same debounce window are
+  last-writer-wins for the whole board, so one tab's edit is lost. In API mode edits to different
+  notes both survive, because the API repository sends per-note diffs. The fix is a diff-based
+  localStorage repository like the API one.
 - **Schema migrations.** Only version 1 exists. The envelope's `version` field is checked strictly
   now; a migration step would sit between parsing the version and validating the board.

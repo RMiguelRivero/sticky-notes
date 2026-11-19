@@ -230,4 +230,60 @@ describe('save scheduler', () => {
     expect(started).toHaveLength(0)
     expect(statuses).toHaveLength(reported)
   })
+
+  describe('hasUnsavedChanges', () => {
+    it('is false before the first save', () => {
+      const { scheduler } = setup()
+      expect(scheduler.hasUnsavedChanges()).toBe(false)
+    })
+
+    it('is true while the debounce is running', () => {
+      const { scheduler } = setup()
+      scheduler.schedule(boardTitled('a'))
+      expect(scheduler.hasUnsavedChanges()).toBe(true)
+    })
+
+    it('is true while a save is in flight', async () => {
+      const { scheduler, started } = setup()
+      scheduler.schedule(boardTitled('a'))
+      await vi.advanceTimersByTimeAsync(debounceMs)
+      expect(started).toHaveLength(1)
+      expect(scheduler.hasUnsavedChanges()).toBe(true)
+    })
+
+    it('is false after a save succeeds', async () => {
+      const { scheduler, started } = setup()
+      scheduler.schedule(boardTitled('a'))
+      await vi.advanceTimersByTimeAsync(debounceMs)
+      started[0]?.finish(saved)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(scheduler.hasUnsavedChanges()).toBe(false)
+    })
+
+    it('stays true after a failed save until a later save succeeds', async () => {
+      const { scheduler, started } = setup()
+      scheduler.schedule(boardTitled('a'))
+      await vi.advanceTimersByTimeAsync(debounceMs)
+      started[0]?.finish({ kind: 'failed', message: 'disk full' })
+      await vi.advanceTimersByTimeAsync(debounceMs * 10)
+      expect(scheduler.hasUnsavedChanges()).toBe(true)
+
+      scheduler.schedule(boardTitled('b'))
+      await vi.advanceTimersByTimeAsync(debounceMs)
+      expect(scheduler.hasUnsavedChanges()).toBe(true)
+      started[1]?.finish(saved)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(scheduler.hasUnsavedChanges()).toBe(false)
+    })
+
+    it('is true while a follow-up save waits behind a finished one', async () => {
+      const { scheduler, started } = setup()
+      scheduler.schedule(boardTitled('a'))
+      await vi.advanceTimersByTimeAsync(debounceMs)
+      scheduler.schedule(boardTitled('b'))
+      started[0]?.finish(saved)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(scheduler.hasUnsavedChanges()).toBe(true)
+    })
+  })
 })

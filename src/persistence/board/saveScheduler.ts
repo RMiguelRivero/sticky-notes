@@ -21,6 +21,8 @@ export type SaveScheduler = {
   readonly schedule: (board: Board) => void
   readonly flush: () => void
   readonly dispose: () => void
+  // True while a save waits for the debounce, runs, or last failed with no later success.
+  readonly hasUnsavedChanges: () => boolean
 }
 
 export function createSaveScheduler({
@@ -32,6 +34,7 @@ export function createSaveScheduler({
   let pending: Board | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
   let saving = false
+  let lastFailed = false
   let disposed = false
 
   // A function, so TypeScript does not keep the narrowed type from before an `await`.
@@ -72,9 +75,11 @@ export function createSaveScheduler({
 
     switch (result.kind) {
       case 'saved':
+        lastFailed = false
         setStatus(hasPending() ? { kind: 'pending' } : { kind: 'saved' })
         break
       case 'failed':
+        lastFailed = true
         setStatus({ kind: 'error', message: result.message })
         break
       default:
@@ -109,6 +114,10 @@ export function createSaveScheduler({
       }
       clearTimer()
       void startSave()
+    },
+
+    hasUnsavedChanges() {
+      return pending !== null || saving || lastFailed
     },
 
     dispose() {

@@ -36,4 +36,5 @@ export const persistenceConfig = {
   mockServerKey: 'sticky-notes:mock-server',
   backupSuffix: ':corrupt-backup',
   schemaVersion: 1,
+  syncChannelName: 'sticky-notes:board-sync',
 } as const
