@@ -5,6 +5,7 @@ import { compactZ } from '../../domain/compactZ.ts'
 import { persistenceConfig } from '../../domain/config.ts'
 import { assertNever } from '../../utils/assertNever.ts'
 import type { XOR } from '../../utils/types/xor.ts'
+import { notifyOtherTabs, onOtherTabSaved } from '../otherTabs.ts'
 import type { BoardRepository, LoadResult } from './BoardRepository.ts'
 import { createSaveScheduler, type SaveScheduler, type SaveStatus } from './saveScheduler.ts'
 import { createTabSync } from './tabSync.ts'
@@ -50,9 +51,6 @@ export function useBoardPersistence(
     const { signal } = controller
     let firstLoadDone = false
 
-    // Tells this app's other tabs to reload after each save. The message carries no data, and a
-    // channel never receives its own messages, so a tab does not reload its own saves.
-    const channel = new BroadcastChannel(persistenceConfig.syncChannelName)
     const scheduler = createSaveScheduler({
       save: saveAndNotify,
       debounceMs: persistenceConfig.debounceMs,
@@ -65,19 +63,17 @@ export function useBoardPersistence(
     })
 
     signal.addEventListener('abort', () => {
-      channel.close()
       scheduler.dispose()
       schedulerRef.current = null
     })
     window.addEventListener('pagehide', () => scheduler.flush(), { signal })
-    channel.addEventListener('message', () => sync.onPing(), { signal })
+    onOtherTabSaved(() => sync.onPing(), signal)
     void repository.load().then(applyFirstLoad)
 
     async function saveAndNotify(boardToSave: Board) {
       const result = await repository.save(boardToSave)
-      // A save can finish after cleanup, when posting on the closed channel would throw.
-      if (result.kind === 'saved' && !signal.aborted) {
-        channel.postMessage(null) // notify other tabs to update their boards
+      if (result.kind === 'saved') {
+        notifyOtherTabs()
       }
       return result
     }

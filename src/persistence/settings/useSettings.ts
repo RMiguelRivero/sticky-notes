@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { defaultSettings, type Settings } from '../../domain/settings.ts'
+import { notifyOtherTabs, onOtherTabSaved } from '../otherTabs.ts'
 import type { SettingsRepository } from './SettingsRepository.ts'
 
 export type SettingsState = {
@@ -11,13 +12,20 @@ export function useSettings(repository: SettingsRepository): SettingsState {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
 
   useEffect(() => {
-    let cancelled = false
-    repository.load().then((loaded) => {
-      if (!cancelled) setSettings(loaded)
-    })
-    return () => {
-      cancelled = true
+    const controller = new AbortController()
+    const { signal } = controller
+
+    function reload() {
+      void repository.load().then((loaded) => {
+        if (!signal.aborted) {
+          setSettings(loaded)
+        }
+      })
     }
+
+    onOtherTabSaved(reload, signal)
+    reload()
+    return () => controller.abort()
   }, [repository])
 
   // Saved from the handler, not an effect, so the initial defaults can never overwrite stored ones.
@@ -25,7 +33,11 @@ export function useSettings(repository: SettingsRepository): SettingsState {
     (snapToGrid: boolean) => {
       const next: Settings = { ...settings, snapToGrid }
       setSettings(next)
-      repository.save(next)
+      void repository.save(next).then((result) => {
+        if (result.kind === 'saved') {
+          notifyOtherTabs()
+        }
+      })
     },
     [repository, settings],
   )

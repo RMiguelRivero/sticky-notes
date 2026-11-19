@@ -108,7 +108,8 @@ Also:
 - **Big boards scroll.** The board fills the window and grows (with scrollbars) to hold notes that
   sit beyond the visible area, so every note stays reachable at any window size or zoom level.
 - **Open tabs stay in sync.** When one tab saves, the other open tabs of the same storage mode
-  reload the board. A tab with unsaved changes waits and reloads right after its own save.
+  reload the board and the Snap switch. A tab with unsaved board changes waits and reloads right
+  after its own save.
 - **Save status.** The header shows "Loading…", "Saving…", "All changes saved" or the error
   ("Couldn't save: ...", in the danger color and in words).
 
@@ -161,10 +162,14 @@ board content behind a second async `SettingsRepository` (`load()` / `save(setti
 versioned `{ version, settings }` envelope under `sticky-notes:settings` in localStorage, validated
 with Zod. `load()` falls back to the defaults for missing, unreadable or invalid data, and
 `useSettings` saves from the change handler, so the initial defaults can never overwrite stored
-settings. Only the localStorage version exists; the mock API does not handle settings.
+settings. Only the localStorage version exists; the mock API does not handle settings. Settings
+sync through the same channel as the board and need no deferral or load counter, because they are
+saved at once from the handler and never from an effect.
 
-Cross-tab sync is a ping followed by a reload. After every successful save the board hook posts an
-empty message on a `BroadcastChannel` it owns (created and closed with the hook's effect). The
+Cross-tab sync is a ping followed by a reload. After every successful save the board or settings hook posts an
+empty message on the tab's single `BroadcastChannel` in `otherTabs.ts`, shared by board and
+settings (two instances in one tab would deliver to each other). Any message makes a tab reload both
+the board and the settings; neither reload ever saves, so there are no loops. The
 message carries no data, so there is nothing to validate, and a channel never delivers to its own
 sender. Other tabs then call
 `repository.load()` and dispatch the result as `boardLoaded`, so the sync works the same for
@@ -176,7 +181,7 @@ ping and reloads after its next successful save. A reload that finishes after th
 something is dropped the same way. Z compaction moved from the reducer to the load path in
 `useBoardPersistence`: `boardLoaded` now stores the loaded object itself, so the hook's reference
 check recognises it and never saves it back. Without that, every reload would cause a save, which
-would ping the other tab, which would reload and save, forever. The hook dispatches loaded boards itself, so the board exists in one place, and its save effect skips the board last loaded. All of its setup (channel, scheduler, sync, listeners, first load) is one effect cleaned up by a single `AbortController`.
+would ping the other tab, which would reload and save, forever. The hook dispatches loaded boards itself, so the board exists in one place, and its save effect skips the board last loaded. All of its setup (scheduler, sync, listeners, first load) is one effect cleaned up by a single `AbortController`.
 
 Performance: during a drag only the dragged note re-renders. `Note` is `React.memo`, and idle notes
 get identical props every frame: the same `note` object from the reducer, `previewRect={undefined}`,
@@ -254,6 +259,7 @@ src/
                 and useNoteInteractions, the hook that wires pointer and key events to them
   persistence/  One folder per kind of data, plus shared.ts (the save result, KeyValueStorage and
                 describeError both use)
+    otherTabs.ts  The tab's one BroadcastChannel: notify other tabs after a save, listen for theirs
     board/      Async BoardRepository, localStorage and mock-API implementations, mock server,
                 save scheduler, and the React hook that loads and autosaves the board
       tabSync.ts  Pure reload logic on a ping: defer while unsaved, latest load wins
