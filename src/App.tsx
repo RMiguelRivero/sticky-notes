@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useReducer, useState } from 'react'
 import './components/App.css'
 import { Board } from './components/Board.tsx'
 import { BoardTitle } from './components/BoardTitle.tsx'
@@ -18,14 +18,8 @@ function App() {
   )
   const { settings, setSnapToGrid } = useSettings(settingsRepository)
   const [board, dispatch] = useReducer(boardReducer, undefined, createEmptyBoard)
-  const { status, loadedBoard, flush } = useBoardPersistence(repository, board)
-  const ready = loadedBoard !== null
-
-  // Every loaded board, the first one and each one reloaded after another tab saved.
-  useEffect(() => {
-    if (loadedBoard === null) return
-    dispatch({ type: 'boardLoaded', board: loadedBoard })
-  }, [loadedBoard])
+  const { status, flush } = useBoardPersistence(repository, board, dispatch)
+  const loading = status.kind === 'loading'
 
   return (
     <div className="app">
@@ -42,10 +36,10 @@ function App() {
         </div>
       </header>
       <main className="app__main">
-        {ready ? (
-          <Board notes={board.notes} dispatch={dispatch} snapToGrid={settings.snapToGrid} />
-        ) : (
+        {loading ? (
           <p>Loading…</p>
+        ) : (
+          <Board notes={board.notes} dispatch={dispatch} snapToGrid={settings.snapToGrid} />
         )}
       </main>
     </div>

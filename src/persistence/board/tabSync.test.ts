@@ -53,21 +53,21 @@ describe('tab sync', () => {
     expect(applied).toEqual(['remote'])
   })
 
-  it('defers a ping while there are unsaved changes, and retry reloads', async () => {
+  it('defers a ping while there are unsaved changes, and reloadIfPingMissed reloads', async () => {
     const { sync, loads, applied, setFree } = setup()
     setFree(false)
     sync.onPing()
     expect(loads).toHaveLength(0)
 
     setFree(true)
-    sync.retry()
+    sync.reloadIfPingMissed()
     expect(loads).toHaveLength(1)
     loads[0]?.(loaded('remote'))
     await settle()
     expect(applied).toEqual(['remote'])
 
-    // The missed ping was used up: another retry does nothing.
-    sync.retry()
+    // The missed ping was used up: calling it again does nothing.
+    sync.reloadIfPingMissed()
     expect(loads).toHaveLength(1)
   })
 
@@ -84,7 +84,7 @@ describe('tab sync', () => {
     expect(applied).toEqual(['newer'])
   })
 
-  it('drops a load result when changes appeared during the load, and retry reloads', async () => {
+  it('drops a load result when changes appeared during the load, and reloadIfPingMissed reloads', async () => {
     const { sync, loads, applied, setFree } = setup()
     sync.onPing()
     setFree(false)
@@ -93,7 +93,7 @@ describe('tab sync', () => {
     expect(applied).toEqual([])
 
     setFree(true)
-    sync.retry()
+    sync.reloadIfPingMissed()
     expect(loads).toHaveLength(2)
     loads[1]?.(loaded('after save'))
     await settle()
@@ -116,9 +116,9 @@ describe('tab sync', () => {
     expect(applied).toEqual([])
   })
 
-  it('does not load on retry without a missed ping', () => {
+  it('reloadIfPingMissed does not load without a missed ping', () => {
     const { sync, loads } = setup()
-    sync.retry()
+    sync.reloadIfPingMissed()
     expect(loads).toHaveLength(0)
   })
 })

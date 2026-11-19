@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { type Board, createEmptyBoard } from '../../domain/board.ts'
+import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react'
+import type { Board } from '../../domain/board.ts'
+import type { BoardAction } from '../../domain/boardReducer.ts'
 import { compactZ } from '../../domain/compactZ.ts'
 import { persistenceConfig } from '../../domain/config.ts'
 import { assertNever } from '../../utils/assertNever.ts'
 import type { XOR } from '../../utils/types/xor.ts'
 import type { BoardRepository, LoadResult } from './BoardRepository.ts'
 import { createSaveScheduler, type SaveScheduler, type SaveStatus } from './saveScheduler.ts'
-import { createTabSync, type TabSync } from './tabSync.ts'
+import { createTabSync } from './tabSync.ts'
 
 export type LoadingStatus = { readonly kind: 'loading' }
 export type ReadyStatus = { readonly kind: 'ready'; readonly save: SaveStatus }
@@ -20,140 +21,142 @@ export type PersistenceStatus = XOR<LoadingStatus, ReadyStatus, LoadErrorStatus>
 
 export type BoardPersistence = {
   readonly status: PersistenceStatus
-  readonly loadedBoard: Board | null
   readonly flush: () => void
 }
 
-type LoadingState = { readonly kind: 'loading' }
-type ReadyState = { readonly kind: 'ready'; readonly board: Board }
-type ErrorState = { readonly kind: 'error'; readonly board: Board; readonly message: string }
-
-type LoadState = XOR<LoadingState, ReadyState, ErrorState>
+type LoadPhase = XOR<
+  { readonly kind: 'loading' },
+  { readonly kind: 'ready' },
+  { readonly kind: 'error'; readonly message: string }
+>
 
 const CORRUPT_MESSAGE =
   'Saved data was unreadable and has been backed up. Starting with an empty board.'
 
-function toLoadState(result: LoadResult): LoadState {
-  switch (result.kind) {
-    case 'loaded':
-      // Compacted here, not in the reducer, so the caller's state is this very object and is not
-      // saved back (which would ping the other tabs into an endless reload loop).
-      return { kind: 'ready', board: compactZ(result.board) }
-    case 'empty':
-      return { kind: 'ready', board: createEmptyBoard() }
-    case 'corrupt':
-      return { kind: 'error', board: createEmptyBoard(), message: CORRUPT_MESSAGE }
-    case 'failed':
-      return {
-        kind: 'error',
-        board: createEmptyBoard(),
-        message: `Could not load the saved board (${result.message}). Starting with an empty board.`,
-      }
-    default:
-      return assertNever(result)
-  }
-}
-
-export function useBoardPersistence(repository: BoardRepository, board: Board): BoardPersistence {
-  const [load, setLoad] = useState<LoadState>({ kind: 'loading' })
+export function useBoardPersistence(
+  repository: BoardRepository,
+  board: Board,
+  dispatch: Dispatch<BoardAction>,
+): BoardPersistence {
+  const [loadPhase, setLoadPhase] = useState<LoadPhase>({ kind: 'loading' })
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ kind: 'idle' })
+  // The board already in storage, which must never be saved: the caller's initial board, then each
+  // board loaded.
+  const storedBoardRef = useRef(board)
   const schedulerRef = useRef<SaveScheduler | null>(null)
-  const syncRef = useRef<TabSync | null>(null)
-  const firstLoadDoneRef = useRef(false)
-  // The last board seen from the caller, starting with the one it has before the load arrives.
-  const lastBoardRef = useRef(board)
 
   useEffect(() => {
-    let cancelled = false
-    firstLoadDoneRef.current = false
-    setLoad({ kind: 'loading' })
-    void repository.load().then((result) => {
-      if (!cancelled) {
-        firstLoadDoneRef.current = true
-        setLoad(toLoadState(result))
-        syncRef.current?.retry()
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [repository])
+    const controller = new AbortController()
+    const { signal } = controller
+    let firstLoadDone = false
 
-  useEffect(() => {
-    let disposed = false
     // Tells this app's other tabs to reload after each save. The message carries no data, and a
     // channel never receives its own messages, so a tab does not reload its own saves.
     const channel = new BroadcastChannel(persistenceConfig.syncChannelName)
     const scheduler = createSaveScheduler({
-      save: async (boardToSave) => {
-        const result = await repository.save(boardToSave)
-        // A save can finish after cleanup, when posting on the closed channel would throw.
-        if (result.kind === 'saved' && !disposed) {
-          channel.postMessage(null)
-        }
-        return result
-      },
+      save: saveAndNotify,
       debounceMs: persistenceConfig.debounceMs,
-      onStatus: setSaveStatus,
+      onStatus: reportSaveStatus,
     })
     const sync = createTabSync({
       load: () => repository.load(),
-      canApply: () => firstLoadDoneRef.current && !scheduler.hasUnsavedChanges(),
-      apply: (remoteBoard) => {
-        if (!disposed) {
-          setLoad({ kind: 'ready', board: compactZ(remoteBoard) })
-        }
-      },
+      canApply: () => firstLoadDone && !scheduler.hasUnsavedChanges(),
+      apply: applyReloaded,
     })
-    schedulerRef.current = scheduler
-    syncRef.current = sync
-    channel.onmessage = () => sync.onPing()
-    const flushOnHide = () => scheduler.flush()
-    window.addEventListener('pagehide', flushOnHide)
-    return () => {
-      disposed = true
-      window.removeEventListener('pagehide', flushOnHide)
+
+    signal.addEventListener('abort', () => {
       channel.close()
       scheduler.dispose()
       schedulerRef.current = null
-      syncRef.current = null
-    }
-  }, [repository])
+    })
+    window.addEventListener('pagehide', () => scheduler.flush(), { signal })
+    channel.addEventListener('message', () => sync.onPing(), { signal })
+    void repository.load().then(applyFirstLoad)
 
-  // A save that succeeded may be what a deferred reload was waiting for.
-  useEffect(() => {
-    if (saveStatus.kind === 'saved') {
-      syncRef.current?.retry()
+    async function saveAndNotify(boardToSave: Board) {
+      const result = await repository.save(boardToSave)
+      // A save can finish after cleanup, when posting on the closed channel would throw.
+      if (result.kind === 'saved' && !signal.aborted) {
+        channel.postMessage(null) // notify other tabs to update their boards
+      }
+      return result
     }
-  }, [saveStatus])
 
+    function reportSaveStatus(status: SaveStatus) {
+      setSaveStatus(status)
+      // A ping that arrived while this tab had unsaved changes was put on hold. Now that they are
+      // saved, reload if one is waiting (otherwise this does nothing).
+      if (status.kind === 'saved') {
+        sync.reloadIfPingMissed()
+      }
+    }
+
+    function applyLoaded(loadedBoard: Board) {
+      const loaded = compactZ(loadedBoard)
+      // Set before dispatching: the save effect runs for the dispatched board and must find it
+      // already marked as stored, or it would save it back and ping the other tabs forever.
+      storedBoardRef.current = loaded
+      dispatch({ type: 'boardLoaded', board: loaded })
+    }
+
+    function applyReloaded(remoteBoard: Board) {
+      if (!signal.aborted) {
+        applyLoaded(remoteBoard)
+      }
+    }
+
+    function applyFirstLoad(result: LoadResult) {
+      if (signal.aborted) {
+        return
+      }
+      switch (result.kind) {
+        case 'loaded':
+          applyLoaded(result.board)
+          setLoadPhase({ kind: 'ready' })
+          break
+        case 'empty':
+          // The initial board is already empty.
+          setLoadPhase({ kind: 'ready' })
+          break
+        case 'corrupt':
+          setLoadPhase({ kind: 'error', message: CORRUPT_MESSAGE })
+          break
+        case 'failed':
+          setLoadPhase({
+            kind: 'error',
+            message: `Could not load the saved board (${result.message}). Starting with an empty board.`,
+          })
+          break
+        default:
+          assertNever(result)
+      }
+      firstLoadDone = true
+      // Exposed only now, so edits made while loading (replaced by the loaded board) are not saved.
+      schedulerRef.current = scheduler
+      sync.reloadIfPingMissed()
+    }
+
+    return () => controller.abort()
+  }, [repository, dispatch])
+
+  // Depends on `board` only: loads set `storedBoardRef` before dispatching, so a loaded board is
+  // skipped here without comparing against any other state.
   useEffect(() => {
-    // Only a board the caller changed is saved. A newly loaded board re-runs this effect while
-    // the caller still holds its previous board, and that stale board must not be saved over it.
-    if (board === lastBoardRef.current) {
-      return
+    if (board !== storedBoardRef.current) {
+      schedulerRef.current?.schedule(board)
     }
-    lastBoardRef.current = board
-    if (load.kind === 'loading' || board === load.board) {
-      return
-    }
-    schedulerRef.current?.schedule(board)
-  }, [board, load])
+  }, [board])
 
   const flush = useCallback(() => schedulerRef.current?.flush(), [])
 
-  switch (load.kind) {
+  switch (loadPhase.kind) {
     case 'loading':
-      return { status: { kind: 'loading' }, loadedBoard: null, flush }
+      return { status: { kind: 'loading' }, flush }
     case 'ready':
-      return { status: { kind: 'ready', save: saveStatus }, loadedBoard: load.board, flush }
+      return { status: { kind: 'ready', save: saveStatus }, flush }
     case 'error':
-      return {
-        status: { kind: 'error', message: load.message, save: saveStatus },
-        loadedBoard: load.board,
-        flush,
-      }
+      return { status: { kind: 'error', message: loadPhase.message, save: saveStatus }, flush }
     default:
-      return assertNever(load)
+      return assertNever(loadPhase)
   }
 }

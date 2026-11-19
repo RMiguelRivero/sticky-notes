@@ -12,7 +12,7 @@ export type TabSync = {
   // Another tab saved the board.
   readonly onPing: () => void
   // Applying may have become possible again: reload if a ping was missed meanwhile.
-  readonly retry: () => void
+  readonly reloadIfPingMissed: () => void
 }
 
 export function createTabSync({ load, canApply, apply }: TabSyncOptions): TabSync {
@@ -47,7 +47,7 @@ export function createTabSync({ load, canApply, apply }: TabSyncOptions): TabSyn
       void reload()
     },
 
-    retry() {
+    reloadIfPingMissed() {
       if (!missedPing) {
         return
       }

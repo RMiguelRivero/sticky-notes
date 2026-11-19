@@ -154,7 +154,8 @@ can overwrite it. The mock API version talks to an in-memory REST server (`GET/P
 diff from the board the server last acknowledged, so after a partial failure the next save re-sends
 exactly what failed. A plain-TypeScript save scheduler debounces, keeps only the latest board and
 runs one save at a time, so responses cannot arrive out of order; `useBoardPersistence` is a thin
-hook over it that loads on mount (and again on sync pings, below) and flushes on `pagehide`.
+hook over it that loads on mount and dispatches `boardLoaded` itself (also on sync pings, below) and
+flushes on `pagehide`.
 Storage is injected (`KeyValueStorage`), so tests use in-memory fakes. User preferences (today only the snap switch) are kept apart from the
 board content behind a second async `SettingsRepository` (`load()` / `save(settings)`): a
 versioned `{ version, settings }` envelope under `sticky-notes:settings` in localStorage, validated
@@ -175,9 +176,7 @@ ping and reloads after its next successful save. A reload that finishes after th
 something is dropped the same way. Z compaction moved from the reducer to the load path in
 `useBoardPersistence`: `boardLoaded` now stores the loaded object itself, so the hook's reference
 check recognises it and never saves it back. Without that, every reload would cause a save, which
-would ping the other tab, which would reload and save, forever. For the same reason the hook only
-saves a board the caller changed: when a reload arrives, the caller still holds its previous board
-for one render, and that stale board must not be saved over the new one.
+would ping the other tab, which would reload and save, forever. The hook dispatches loaded boards itself, so the board exists in one place, and its save effect skips the board last loaded. All of its setup (channel, scheduler, sync, listeners, first load) is one effect cleaned up by a single `AbortController`.
 
 Performance: during a drag only the dragged note re-renders. `Note` is `React.memo`, and idle notes
 get identical props every frame: the same `note` object from the reducer, `previewRect={undefined}`,
